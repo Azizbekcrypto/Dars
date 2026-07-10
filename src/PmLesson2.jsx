@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
-const mentorImg = 'https://go.coddycamp.uz/uploads/media_library/c7b711619071c92bef604c7ad68380dd.png';
+import mentorImg from '../assets/common/mentor.png';
 
 // ============================================================
 // PM 2-DARS — STRUKTURA UX QAROR (sayt bo'limlari tartibi) — PLATFORM STANDARD v16
@@ -16,7 +16,6 @@ const T = {
   success: '#1F7A4D', successSoft: '#E3F0E8', blue: '#019ACB', blueSoft: '#E2F4FA', link: '#1a56db',
   shadowBase: '58, 53, 48'
 };
-const CODE = { bg: '#1A2436', text: '#E8E5DD', tag: '#FF7755', attr: '#FFD380', str: '#7DD181', comment: '#6B7585', punct: '#9FB4D8' };
 const G = "Georgia, serif"; // "haqiqiy sayt" ko'rinishi uchun (HTML darslar standarti)
 
 
@@ -263,8 +262,7 @@ function LiveGate({ live, title = 'Jonli dars' }) {
 function LiveBadge({ live, total }) {
   const [bigOpen, setBigOpen] = useState(false);
   const [nPlayers, setNPlayers] = useState(null);
-  const shownRef = useRef(false);
-  useEffect(() => { if (live.mode === 'mentor' && live.pin && !live.ended && !shownRef.current) { shownRef.current = true; setBigOpen(true); } }, [live.mode, live.pin, live.ended]);
+  // 🔴 Katta PIN AUTO-ochilmaydi (L1 etalon) — faqat «📺 Ko'rsatish» tugmasi ochadi (onboarding spotlight to'qnashmasin)
   // Mentor: qo'shilgan o'quvchilar soni (har 6s yangilanadi)
   useEffect(() => {
     if (live.mode !== 'mentor' || !live.pin || live.ended) return;
@@ -749,7 +747,7 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onRevea
         <p className="mstats-hidden">🙈 Kim nimani tanlagani va ✅/❌ soni yashirin — «Natijani ochish» bosilganda sizda ham, o'quvchilar ekranida ham birdan ochiladi.</p>
       )}
       {reveal && <div className="mstats-bars">
-        {options.map((opt, i) => {
+        {options.map((_opt, i) => {
           const n = data.rows.filter(a => a.picked === i).length;
           const pct = answered ? Math.round((n / answered) * 100) : 0;
           const isC = reveal && i === correctIdx;
@@ -800,41 +798,6 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onRevea
 // ===== MENTOR YOZMA-ISH PANELI — s6 (amaliyot) va s15 (yakuniy g'oya) uchun =====
 // O'quvchining yozgan MATNI serverga bormaydi (jadval sxemasi) — faqat «tugatdi»
 // belgisi boradi. Mentor kim tugatgani/kim yozayotganini jonli ko'radi.
-function MentorWorkStats({ live, screenIdx, taskLabel }) {
-  const [data, setData] = useState({ players: null, rows: [] });
-  useEffect(() => {
-    let on = true, t = null;
-    const tick = async () => {
-      try {
-        const [players, answers] = await Promise.all([livePlayers(live.pin), liveAnswers(live.pin, screenIdx)]);
-        if (on) setData({ players, rows: answers });
-      } catch {}
-      if (on) t = setTimeout(tick, 3000);
-    };
-    tick();
-    return () => { on = false; clearTimeout(t); };
-  }, [live.pin, screenIdx]);
-  if (data.players === null) return null;
-  const total = data.players.length;
-  const doneN = data.rows.length;
-  const allIn = total > 0 && doneN >= total;
-  const doneIds = new Set(data.rows.map(r => r.player_id));
-  return (
-    <div className="mstats fade-up">
-      <div className="mstats-head">
-        <span className="mstats-lbl">✍️ {taskLabel}</span>
-        <span className="mstats-n">{allIn ? '✓ Hamma tugatdi!' : <>Tugatdi: <b>{doneN}</b> / {total}</>}</span>
-      </div>
-      <div className="mstats-prog"><span className={`mstats-prog-fill ${allIn ? 'full' : ''}`} style={{ width: `${total ? Math.round((doneN / total) * 100) : 0}%` }} /></div>
-      {total > 0 && (
-        <div className="mstats-waitrow">
-          {data.players.map(p => <span key={p.id} className="mstats-wait-chip" style={doneIds.has(p.id) ? { background: T.successSoft, color: T.success, fontWeight: 700 } : undefined}>{doneIds.has(p.id) ? '✓ ' : '✏️ '}{p.nickname}</span>)}
-        </div>
-      )}
-      {doneN === 0 && <p className="mstats-wait">O'quvchilar yozib tugatishi bilan shu yerda ✓ belgisi chiqadi…</p>}
-    </div>
-  );
-}
 
 const QuestionScreen = ({ screen, scope, eyebrow, question, questionText, options, correctIdx, explainCorrect, explainWrong, audioText, audioOk, audioWrong, storedAnswer, onAnswer, onNext, onPrev }) => {
   const audio = useAudio(audioText ? [{ id: `s${screen}_intro`, text: audioText, trigger: 'on_mount', waits_for: { type: 'option_picked' } }] : null);
@@ -985,8 +948,6 @@ const MentorCollapseScroll = ({ targetRef }) => {
   return null;
 };
 
-// global savol — har ekran shu bilan ochiladi
-const Q = ({ children, max = 760 }) => <h2 className="title h-title fade-up" style={{ maxWidth: max }}>{children}</h2>;
 const IcoChip = ({ color = T.accent, soft = T.accentSoft, children, size = 46 }) => (
   <span style={{ width: size, height: size, borderRadius: 13, background: soft, color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{children}</span>
 );
@@ -1000,16 +961,6 @@ const Preview = ({ url, children, minH }) => (
 );
 
 // Sayt maketi ichidagi mini landing-page
-const SiteMock = ({ logo = 'S', color = T.accent, name = 'Sayt', headline, sub, rows, cta }) => (
-  <div className="pg-in" key={name + (headline || '')}>
-    <div className="site-header"><span className="site-brand"><span className="site-logo" style={{ background: color }}>{logo}</span><span className="site-name">{name}</span></span><span className="site-nav"><span>Asosiy</span><span>Haqida</span></span></div>
-    {headline && <h3 className="site-h3" style={{ marginTop: 2 }}>{headline}</h3>}
-    {sub && <p style={{ fontFamily: G, color: T.ink2, fontSize: 'clamp(12.5px,1.6vw,14px)', lineHeight: 1.5, margin: '0 0 12px' }}>{sub}</p>}
-    {rows && <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '0 0 13px' }}>{rows.map((r, i) => (<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ width: 38, height: 28, borderRadius: 6, background: T.bg, flexShrink: 0, boxShadow: `inset 0 0 0 1px ${T.ink3}30` }} /><span style={{ fontFamily: G, fontSize: 13.5, color: T.ink }}>{r}</span></div>))}</div>}
-    {cta && <span style={{ display: 'inline-block', background: color, color: '#fff', fontFamily: "'Manrope',sans-serif", fontWeight: 600, fontSize: 13, padding: '9px 18px', borderRadius: 9 }}>{cta}</span>}
-  </div>
-);
-
 // ===== PM-2 STRUKTURA — bo'limlar va ularning to'g'ri tartibi (marketplace "Bozor") =====
 const ssv = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' };
 const sIco = {
@@ -1027,7 +978,6 @@ const SECDATA = {
   harakat: { label: 'Harakat tugmasi', ic: sIco.cursor(18), color: '#7B3FE4', job: 'Aniq keyingi qadam: "E\'lon berish".', snip: '[ E\'lon berish ]' }
 };
 const ORDER = ['hero', 'muammo', 'yechim', 'isbot', 'harakat'];
-const move = (arr, i, dir) => { const j = i + dir; if (j < 0 || j >= arr.length) return arr; const n = [...arr]; const t = n[i]; n[i] = n[j]; n[j] = t; return n; };
 
 const SecView = ({ k }) => {
   if (k === 'hero') return (<div><div className="site-header" style={{ marginBottom: 8 }}><span className="site-brand"><span className="site-logo" style={{ background: '#7B3FE4' }}>B</span><span className="site-name">Bozor</span></span><span className="site-nav"><span>Sotish</span><span>Xarid</span></span></div><h3 className="site-h3" style={{ margin: 0 }}>Ortiqcha buyumingizni soting</h3></div>);
@@ -1044,25 +994,6 @@ const PagePreview = ({ order, url = 'bozor.uz', minH = 240 }) => (
     </div>
   </Preview>
 );
-const reordBtn = (disabled) => ({ border: 'none', background: T.bg, borderRadius: 6, padding: '3px 7px', cursor: disabled ? 'default' : 'pointer', color: T.ink2, opacity: disabled ? 0.3 : 1, display: 'inline-flex' });
-const SecCard = ({ k, i, total, onMove, showJob }) => {
-  const s = SECDATA[k];
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: T.paper, borderRadius: 12, padding: '11px 13px', boxShadow: `0 6px 16px -8px rgba(${T.shadowBase},0.16)` }}>
-      <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.ink3, minWidth: 14 }}>{i + 1}</span>
-      <span style={{ color: s.color, display: 'inline-flex' }}>{s.ic}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 600, fontSize: 13.5, color: T.ink, margin: 0 }}>{s.label}</p>
-        {showJob && <p style={{ margin: '2px 0 0', color: T.ink3, fontSize: 11.5, lineHeight: 1.35, fontFamily: "'Manrope',sans-serif" }}>{s.job}</p>}
-      </div>
-      <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <button style={reordBtn(i === 0)} disabled={i === 0} onClick={() => onMove(i, -1)}>{sIco.up(14)}</button>
-        <button style={reordBtn(i === total - 1)} disabled={i === total - 1} onClick={() => onMove(i, 1)}>{sIco.down(14)}</button>
-      </span>
-    </div>
-  );
-};
-
 // 🧲 Qayta ishlatiladigan DRAG&DROP TARTIBLASH (9.1) — pool + slots, tap-to-place fallback, DOM-transform sudrash.
 // Boshqa darsga: `items` ([{id,label}] — TO'G'RI tartibda), `hints`, `onSolved`, `onOrder` almashtiriladi.
 function DragDropOrder({ items, hints, onSolved, onOrder }) {
@@ -1681,7 +1612,7 @@ const Screen12 = (props) => (
     audioText="Sahifa bo'limlarining eng mantiqiy tartibi qaysi?"
     questionText="Sahifa bo'limlarining eng mantiqiy tartibi qaysi?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Eng <span className="italic" style={{ color: T.accent }}>mantiqiy</span> tartib qaysi?</h2></>}
-    options={['Tugma → isbot → sarlavha → muammo', 'Isbot → tugma → muammo → sarlavha', 'Muammo → tugma → sarlavha → isbot', 'Sarlavha → muammo → yechim → isbot → tugma']} correctIdx={3}
+    options={['Tugma → isbot → sarlavha → muammo → yechim', 'Isbot → tugma → muammo → sarlavha → yechim', 'Muammo → tugma → sarlavha → yechim → isbot', 'Sarlavha → muammo → yechim → isbot → tugma']} correctIdx={3}
     explainCorrect="To'g'ri! Sarlavha (nima), muammo (nega), yechim (qanday), isbot (ishonch), tugma (harakat). Mukammal hikoya tartibi."
     explainWrong={{ 0: 'Tugma boshida — erta. Avval sarlavha va ishontirish kerak.', 1: 'Aralashib ketgan. To\'g\'risi: sarlavha → muammo → yechim → isbot → tugma.', 2: 'Sarlavha boshida bo\'lishi kerak, tugma esa oxirida.', default: 'Sarlavha → muammo → yechim → isbot → tugma.' }} />
 );
@@ -2019,17 +1950,17 @@ const QZ_BG_SHAPES = [
   { ch: '{ }',       l: 2,  t: 46, s: 24, c: 'rgba(20,17,14,0.045)',  d: 26, dl: 2.6 },
 ];
 const QUIZ_BANK = [
-  { q: "Sayt strukturasi (bo'limlar tartibi) aslida nima?", opts: ["UX qaror — foydalanuvchi qulayligi uchun", "Shunchaki bezak", "Faqat dizaynerning didi", "Tasodifiy tanlov"], correct: 0 },
+  { q: "Sayt strukturasi (bo'limlar tartibi) aslida nima?", opts: ["UX qaror — foydalanuvchi qulayligi uchun", "Shunchaki chiroyli bezak — mazmunsiz", "Faqat dizaynerning shaxsiy didi va xohishi", "Har safar tasodifiy tanlanadigan narsa"], correct: 0 },
   { q: "Foydalanuvchi saytni ochganda birinchi nimani ko'radi?", opts: ["Footerni", "Tepa qism (hero)", "Eng oxirgi bo'lim", "Yashirin menyu"], correct: 1 },
-  { q: "Harakat tugmasi (CTA) qayerda turishi mantiqiy?", opts: ["Eng tepada", "Foydalanuvchi ishongandan keyin", "Sarlavhadan oldin", "Kerak emas"], correct: 1 },
-  { q: "Bo'limlarning eng mantiqiy tartibi qaysi?", opts: ["Tugma-isbot-sarlavha", "Sarlavha-muammo-yechim-isbot-tugma", "Isbot-tugma-muammo", "Muammo-tugma-sarlavha"], correct: 1 },
-  { q: "'Hero' (sarlavha) bo'limining vazifasi nima?", opts: ["Bir jumlada sayt nimani taklif qilishini aytish", "Ariza qabul qilish", "Faqat isbot", "Footer ma'lumoti"], correct: 0 },
+  { q: "Harakat tugmasi (CTA) qayerda turishi mantiqiy?", opts: ["Eng tepada, hammadan oldin", "Foydalanuvchi ishongandan keyin", "Sarlavhadan ham oldinroq, boshida", "Umuman kerak emas, tugmasiz ham"], correct: 1 },
+  { q: "Bo'limlarning eng mantiqiy tartibi qaysi?", opts: ["Tugma-isbot-sarlavha-muammo-yechim", "Sarlavha-muammo-yechim-isbot-tugma", "Isbot-tugma-muammo-yechim-sarlavha", "Muammo-tugma-sarlavha-yechim-isbot"], correct: 1 },
+  { q: "'Hero' (sarlavha) bo'limining vazifasi nima?", opts: ["Bir jumlada sayt nimani taklif qilishini aytish", "Foydalanuvchilardan ariza va to'lov qabul qilish", "Faqat mijozlar isbotini ko'rsatib berish", "Footerdagi aloqa va manzil ma'lumotini berish"], correct: 0 },
   { q: "'Isbot' bo'limi nima uchun kerak?", opts: ["Sahifani uzaytirish", "Rang qo'shish", "Ishonch uyg'otish", "Tugmani yashirish"], correct: 2 },
-  { q: "Yaxshi tuzilgan sahifa nimaga o'xshaydi?", opts: ["Tartibsiz ro'yxatga", "Lug'atga", "Hikoyaga — qadam-baqadam yetaklaydi", "Bo'sh varaqqa"], correct: 2 },
-  { q: "Bo'limlar tartibi nega muhim?", opts: ["Chiroyli ko'rinish", "Sahifa uzunroq", "Foydalanuvchini muammodan yechimga olib boradi", "Farqi yo'q"], correct: 2 },
-  { q: "Bo'limlar aralash tartibda bo'lsa nima bo'ladi?", opts: ["Yaxshiroq", "Hech narsa", "Tezroq yuklanadi", "Foydalanuvchi chalkashadi va ketadi"], correct: 3 },
+  { q: "Yaxshi tuzilgan sahifa nimaga o'xshaydi?", opts: ["Tartibsiz, aralash ro'yxatga", "Alifbo bo'yicha tuzilgan lug'atga", "Hikoyaga — qadam-baqadam yetaklaydi", "Hech nima yozilmagan bo'sh varaqqa"], correct: 2 },
+  { q: "Bo'limlar tartibi nega muhim?", opts: ["Sahifaga chiroyliroq va yorqin ko'rinish berish", "Sahifani uzunroq va to'ldirilgan qilish", "Foydalanuvchini muammodan yechimga olib boradi", "Aslida hech qanday farqi yo'q, bari bir xil"], correct: 2 },
+  { q: "Bo'limlar aralash tartibda bo'lsa nima bo'ladi?", opts: ["Sahifa yanada yaxshiroq bo'ladi", "Hech qanday muammo yuzaga kelmaydi", "Sahifa ancha tezroq yuklanadi", "Foydalanuvchi chalkashadi va ketadi"], correct: 3 },
   { q: "'Muammo' bo'limi qanday his uyg'otishi kerak?", opts: ["'Bu menga tanish'", "'Qiziq emas'", "'Juda qimmat'", "'Murakkab'"], correct: 0 },
-  { q: "Chiroyli va ishonchli sayt farqi ko'pincha nimada?", opts: ["Ranglarida", "Shrift o'lchamida", "Rasmlar sonida", "Tartibida (strukturasida)"], correct: 3 },
+  { q: "Chiroyli va ishonchli sayt farqi ko'pincha nimada?", opts: ["Ishlatilgan ranglarida", "Shrift o'lchami va turida", "Qo'shilgan rasmlar sonida", "Tartibida (strukturasida)"], correct: 3 },
   { q: "YouTube kabi saytlar qanday mantiqqa amal qiladi?", opts: ["Avval harakat, keyin sarlavha", "Tasodifiy tartib", "Faqat matn", "Avval eng muhimi, oxirida harakat"], correct: 3 },
 ];
 const quizPts = (elapsedMs) => elapsedMs <= 500 ? 1000 : Math.max(0, Math.round(1000 * (1 - (Math.min(elapsedMs, QUIZ_MS) / QUIZ_MS) / 2)));
@@ -2571,7 +2502,7 @@ export default function PmLesson2({ lang: langProp, onFinished }) {
       scorePercent: scoredMeta.length ? Math.round((correctAnswers / scoredMeta.length) * 100) : 0,
       finalScore: finalCorrect, finalTotal: finalMeta.length,
       passed: finalMeta.length ? finalCorrect / finalMeta.length >= 0.6 : (scoredMeta.length ? correctAnswers / scoredMeta.length >= 0.6 : false),
-      answers: SCREEN_META.map((s, i) => answers[i]).filter(Boolean)
+      answers: SCREEN_META.map((_s, i) => answers[i]).filter(Boolean)
     };
     if (typeof onFinished === 'function') onFinished(payload);
   };
