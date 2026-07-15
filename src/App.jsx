@@ -1,10 +1,10 @@
-import PmLesson2 from './PmLesson2.jsx'
+import HtmlLesson from './CssLesson1.jsx'
 
 function App() {
 
   return (
     <>
-      <PmLesson2 />
+      <HtmlLesson />
     </>
   )
 }
