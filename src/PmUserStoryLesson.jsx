@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from 'react';
+const MENTOR_IMG = 'https://go.coddycamp.uz/uploads/media_library/c7b711619071c92bef604c7ad68380dd.png';
 
 // ============================================================
 //  KOD COMPILATOR (HtmlCompiler) — praktika ekrani: kod editor + jonli preview + shart tekshiruvi.
@@ -228,12 +229,12 @@ function parseCss(css) {
           const p = r.style[i];
           props[p] = r.style.getPropertyValue(p);
         }
-        // 🔴 QISQA XOSSALAR: CSSOM ularni longhandga yoyadi (padding→4 tomon, margin→4,
-        // gap→row-gap/column-gap...) — enumeratsiyada faqat longhand chiqadi, cssProp('.box','padding')
-        // topa olmaydi. Qisqa xossani ham qo'shamiz.
+        // 🔴 QISQA XOSSALAR: CSSOM ularni longhandga yoyadi (gap→row-gap/column-gap,
+        // margin→4 tomon...) — enumeratsiyada faqat longhand chiqadi, `props['gap']` bo'sh
+        // qoladi va cssProp('.row','gap') topa olmaydi. Qisqa xossani ham qo'shamiz.
         ['gap', 'margin', 'padding', 'border', 'flex', 'background', 'font', 'inset',
          'place-items', 'place-content', 'border-radius', 'flex-flow', 'list-style',
-         'transition', 'overflow'].forEach((sh) => {
+         'transition', 'overflow', 'grid-template', 'gridArea'].forEach((sh) => {
           if (props[sh] == null) { const v = r.style.getPropertyValue(sh); if (v) props[sh] = v; }
         });
         return { selector: r.selectorText || '', props };
@@ -880,7 +881,6 @@ function StyleTag() {
 // Dars shartlarida ishlatiladigan qisqa alias (ilgari `checks as C`)
 const C = checks;
 
-
 // ============================================================
 // HTML 1-DARS — PLATFORM STANDARD v15 (Notion: design_system + platform_contract + infrastructure_v1)
 // Arxitektura va asosiy dizayn — Notiondan. 17 ekran bizning kontentimiz.
@@ -891,8 +891,8 @@ const C = checks;
 const T = {
   bg: '#F6F4EF', ink: '#0E0E10', ink2: '#5A5A60', ink3: '#A7A6A2',
   paper: '#FFFFFF', accent: '#FF4F28', accentSoft: '#FFE8E1', accentVivid: '#FF4F28',
-  success: '#1F7A4D', successSoft: '#E3F0E8', blue: '#019ACB', link: '#1a56db',
-  shadowBase: '58, 53, 48'
+  success: '#1F7A4D', successSoft: '#E3F0E8', blue: '#019ACB', blueSoft: '#E1F3FB', link: '#1a56db',
+  line: '#E9E6DF', shadowBase: '58, 53, 48'
 };
 const CODE = { bg: '#1A2436', text: '#E8E5DD', tag: '#FF7755', attr: '#FFD380', str: '#7DD181', comment: '#6B7585', punct: '#9FB4D8' };
 
@@ -941,8 +941,7 @@ const livePlayers = (pin) => liveList(`live_players?pin=eq.${encodeURIComponent(
 const liveAnswers = (pin, screenIdx) => liveList(`live_answers?pin=eq.${encodeURIComponent(pin)}${screenIdx == null ? '&screen_idx=lt.100' : `&screen_idx=eq.${screenIdx}`}&select=player_id,screen_idx,picked,correct,elapsed_ms`);
 const liveQuizAnswers = (pin) => liveList(`live_answers?pin=eq.${encodeURIComponent(pin)}&screen_idx=gte.100&select=player_id,screen_idx,picked,correct,elapsed_ms`);
 
-// Praktika "tugatdim" signali: screen_idx = 500 + fromScreen (testlar <100, jang >=100 bilan to'qnashmaydi)
-const PRACTICE_DONE_BASE = 500;
+const PRACTICE_DONE_BASE = 500; // praktikani tugatish signali server indeksi (100+ jang, 500+ praktika)
 const LiveGateCtx = createContext(null);
 const AchCtx = createContext(null); // 🏅 olingan nishonlar (Set) — Stage hisoblagichi uchun
 
@@ -1143,6 +1142,8 @@ function LiveGate({ live, title = 'Jonli dars' }) {
 function LiveBadge({ live, total }) {
   const [bigOpen, setBigOpen] = useState(false);
   const [nPlayers, setNPlayers] = useState(null);
+  // Katta PIN ekrani (LiveBigCode) AVTOMATIK ochilmaydi — faqat «📺 Ko'rsatish» tugmasi bilan.
+  // (Aks holda mentor kirishi bilan katta PIN ochilib, onboarding tur ortidagi kichik badge'ni yoritadi — spotlight qorong'u ustida bo'sh chiqadi.)
   // Mentor: qo'shilgan o'quvchilar soni (har 6s yangilanadi)
   useEffect(() => {
     if (live.mode !== 'mentor' || !live.pin || live.ended) return;
@@ -1155,10 +1156,10 @@ function LiveBadge({ live, total }) {
     return () => { on = false; clearTimeout(t); };
   }, [live.mode, live.pin, live.ended]);
   if (live.mode === 'mentor') {
-    if (live.ended) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar erkin qilindi</div>;
+    if (live.ended) return <div className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar erkin qilindi</div>;
     return (<>
       {bigOpen && <LiveBigCode pin={live.pin} onClose={() => setBigOpen(false)} />}
-      <div style={_liveBadgeS}>
+      <div data-tour="live" className="live-badge" style={_liveBadgeS}>
         <span style={_liveDot(LT.success)} /> Kod: <b style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>{fmtPin(live.pin)}</b>
         {nPlayers !== null && <span style={{ color: LT.ink2 }}>👥 {nPlayers}</span>}
         <button onClick={() => setBigOpen(true)} title="Kodni katta ko'rsatish" style={{ marginLeft: 6, background: LT.ink, color: '#fff', border: 'none', borderRadius: 99, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>📺 Ko'rsatish</button>
@@ -1167,10 +1168,10 @@ function LiveBadge({ live, total }) {
     </>);
   }
   if (live.mode === 'student') {
-    if (live.status === 'ended') return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
-    if (!live.mentorAlive) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
-    if (!live.connected) return <div style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
-    return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}{live.nickname && <span style={{ color: LT.ink3 }}>· {live.nickname}</span>}</div>;
+    if (live.status === 'ended') return <div className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
+    if (!live.mentorAlive) return <div className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
+    if (!live.connected) return <div className="live-badge" style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
+    return <div className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}{live.nickname && <span style={{ color: LT.ink3 }}>· {live.nickname}</span>}</div>;
   }
   return null;
 }
@@ -1275,7 +1276,7 @@ function useAudio(segments) {
 
 // AUDIOSIZ: AudioIndicator (ovoz/replay tugmalari) olib tashlandi — ovoz o'chirilgan, ikonka kerak emas.
 
-const LESSON_META = { lessonId: 'css-01-v17', lessonTitle: { uz: 'CSS asoslari: ranglar, shriftlar, bo\'shliqlar', ru: 'CSS руками — часть 1' } };
+const LESSON_META = { lessonId: 'css-02-v18', lessonTitle: { uz: 'CSS: layout, flexbox, DevTools', ru: 'CSS руками — часть 2' } };
 const SCREEN_META = [
   { id: 's0',  type: 'hook',        template: 'custom',   scored: false, scope: 'hook' },
   { id: 's1',  type: 'rule',        template: 'custom',   scored: false, scope: null },
@@ -1294,7 +1295,6 @@ const SCREEN_META = [
   { id: 's12', type: 'test',        template: 'MCScreen', scored: true,  scope: 'module-mikro' },
   { id: 's13', type: 'case',        template: 'custom',   scored: false, scope: null },
   { id: 's14', type: 'rule',        template: 'custom',   scored: false, scope: null },
-  { id: 's15', type: 'test',        template: 'custom',   scored: true,  scope: 'final' },
   { id: 's15b', type: 'stats',      template: 'custom',   scored: false, scope: null },
   { id: 'sflash', type: 'review',   template: 'custom',   scored: false, scope: null },
   { id: 's16', type: 'summary',     template: 'custom',   scored: false, scope: null }
@@ -1312,7 +1312,7 @@ const Preview = ({ children, title = 'preview.html', minH }) => (
 const Split = ({ children }) => <div className="split">{children}</div>;
 const Col = ({ children, gap }) => <div className="col" style={gap ? { gap } : undefined}>{children}</div>;
 
-// 🏅 Yuqori paneldagi nishon hisoblagichi — doim ko'rinadi, yangi olinganda pulslaydi, bosilsa ro'yxat chiqadi
+// 🏅 Nishon hisoblagichi — yuqori panelda doim ko'rinadi; bosilganda kolleksiya popover
 function AchCounter() {
   const earned = useContext(AchCtx);
   const count = earned ? earned.size : 0;
@@ -1326,12 +1326,12 @@ function AchCounter() {
   }, [count]);
   return (
     <div className="ach-cnt-wrap">
-      <button className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Nishonlar" title="Nishonlaringiz">
+      <button data-tour="ach" className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Badges" title="Badges">
         <span className="ach-cnt-ic">🏅</span><b>{count}</b><span className="ach-cnt-tot">/{total}</span>
       </button>
       {open && (
         <div className="ach-pop" onMouseLeave={() => setOpen(false)}>
-          <div className="ach-pop-h">🏅 Nishonlar — {count}/{total}</div>
+          <div className="ach-pop-h">🏅 Badges — {count}/{total}</div>
           {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(earned && earned.has(id)); return (
             <div key={id} className={`ach-pop-row ${got ? 'got' : ''}`}><span className="ach-pop-ic">{got ? a.icon : '🔒'}</span><span className="ach-pop-nm">{a.name}</span></div>
           ); })}
@@ -1367,7 +1367,7 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
     <MentorCtx.Provider value={{ enabled: collapseOn, collapsed: mCollapsed, setCollapsed }}>
       <div className="stage">
         <div className="stage-header" style={{ paddingLeft: padH, paddingRight: padH }}>
-          <div className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
+          <div data-tour="progress" className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
           <div className="chrome">
             <div className="chrome-left eyebrow"><span className="dot" /><span>{eyebrow}</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -1389,7 +1389,7 @@ const NavNext = ({ disabled, label = 'Davom etish', onClick, optionalLive }) => 
   const locked = !!(gate && gate.locked);
   const live = gate && gate.live;
   const freeRide = !!(optionalLive && live && live.mode === 'student' && live.status !== 'ended' && live.mentorAlive);
-  return <button className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
+  return <button data-tour="next" className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
 };
 
 const FeedbackBlock = ({ show, isCorrect, neutral, children }) => {
@@ -1420,67 +1420,66 @@ const RECAP_MIN_ANSWERS = 3; // foizga ishonch uchun kamida shuncha javob kerak
 const RcFlow = ({ items, sep = '→' }) => (
   <div className="rc-flow">{items.map((t, i) => <React.Fragment key={i}><span className="rc-chip">{t}</span>{sep && i < items.length - 1 && <span className="rc-arr">{sep}</span>}</React.Fragment>)}</div>
 );
-// RECAPS — har scored test uchun «Qayta tushuntirish» kartalari (kalit = ekran indeksi)
+// RECAPS kontenti — har scored test uchun 3 karta (dars metaforalari bilan mos)
 const RECAPS = {
-  // idx 5 — s4: «color nima deb ataladi?» (nazariya: CSS sintaksisi — selektor/xususiyat/qiymat)
-  5: {
-    title: 'CSS qoidasining 3 qismi', cards: [
-      { ic: '🎯', h: 'Selektor — kimni bezaymiz',
-        body: <>CSS qoidasi <b>selektor</b> bilan boshlanadi — qaysi elementni bezashni aytadi: <b className="mono">h1</b>, <b className="mono">p</b>. Undan keyin <b className="mono">{'{ }'}</b> qavs ichida bezaklar yoziladi.</>,
-        vis: <RcFlow items={['h1 — selektor', '{ ... }', 'bezaklar']} /> },
-      { ic: '🔧', h: "Xususiyat — nimani o'zgartiramiz",
-        body: <>Qavs ichida <b>xususiyat</b> (property) — nimani o'zgartirishni aytadi: <b className="mono">color</b> (rang), <b className="mono">font-size</b> (o'lcham). Undan keyin ikki nuqta <b className="mono">:</b> qo'yiladi.</>,
-        vis: <RcFlow items={['color', ':', 'qiymat']} sep="" />,
-        ask: "`color` xususiyati nimani o'zgartiradi?" },
-      { ic: '💡', h: "Qiymat — qanday qilib",
-        body: <>Ikki nuqtadan keyin <b>qiymat</b> — qanday bo'lishini aytadi: <b className="mono">red</b>, <b className="mono">24px</b>. Har satr oxiriga nuqta-vergul <b className="mono">;</b> qo'yiladi.</>,
-        vis: <RcFlow items={['color', 'red', ';']} sep="" />,
-        ask: "`color: red;` da qaysi qism qiymat?" },
+  // idx 4 — s4: «Elementlarni yonma-yon qatorga nima tizadi?» (display: flex)
+  4: {
+    title: 'Flexbox: elementlarni qatorga tizish', cards: [
+      { ic: '📋', h: 'Muammo: block ustma-ust tushadi',
+        body: <>div, h1, p kabi <b>block</b> elementlar butun qatorni egallaydi — xuddi <b>bino qavatlari</b> kabi, biri ostida ikkinchisi. Shuning uchun menyu tugmalari ustma-ust tushadi.</>,
+        vis: <RcFlow items={['📋 block', 'ustma-ust', 'chiroyli emas']} sep="·" /> },
+      { ic: '📚', h: 'Yechim: display: flex',
+        body: <>Konteynerga <b className="mono">display: flex</b> bersangiz, ichidagi elementlar o'zi <b>yonma-yon qatorga</b> tiziladi. Xuddi <b>tokchaga kitob terish</b> kabi — tokchani belgilaysiz, kitoblar tizilib ketadi.</>,
+        vis: <RcFlow items={['📦 Konteyner', 'display: flex', '📚 yonma-yon qator']} /> },
+      { ic: '☝️', h: 'display: flex qayerga yoziladi?',
+        body: <>Ichidagi elementga emas — <b>o'rab turgan konteynerga</b>. Bolalarni qatorga tizadigan buyruq har doim ularni <b>o'rab turgan</b> qutiga beriladi.</>,
+        vis: <RcFlow items={['Konteyner — flex', 'ichki elementlar — tiziladi']} sep="·" />,
+        ask: "Menyu tugmalari qatorga tizilishi uchun display: flex ni qaysi elementga beramiz?" },
     ]
   },
-  // idx 7 — s5b: «Matn rangini qaysi xususiyat?» (nazariya: color va background-color)
-  7: {
-    title: 'Ranglar: color va background', cards: [
-      { ic: '🖋️', h: 'color — matn (harflar) rangi',
-        body: <><b className="mono">color</b> — matnning, ya'ni harflarning rangini o'zgartiradi. Masalan <b className="mono">color: red</b> — harflar qizil bo'ladi.</>,
-        vis: <RcFlow items={['color: red', '→', '🔴 qizil matn']} />,
-        ask: "Matnni ko'k qilish uchun nima yozasiz?" },
-      { ic: '🎨', h: 'background-color — fon rangi',
-        body: <>Element ORTIDAGI fon rangi esa <b className="mono">background-color</b> bilan beriladi. Ikkisini adashtirmang: <b>color</b> — harflar, <b>background-color</b> — orqa fon.</>,
-        vis: <RcFlow items={['color — harflar', 'background-color — fon']} sep="·" /> },
-      { ic: '📇', h: 'Rangni qanday yozamiz',
-        body: <>Rangni nomi bilan (<b className="mono">red</b>, <b className="mono">blue</b>) yoki HEX kod bilan (<b className="mono">#FF4D26</b>) yozish mumkin. HEX — aniqroq, millionlab tus.</>,
-        vis: <RcFlow items={['red', '#FF4D26', 'rgb(...)']} sep="·" /> },
+  // idx 6 — s5b: «Flex elementlarni ustunga tizish uchun?» (flex-direction: column)
+  6: {
+    title: 'flex-direction: row va column', cards: [
+      { ic: '↔️', h: 'row — yonma-yon qator',
+        body: <><b className="mono">flex-direction: row</b> — ichki elementlar <b>yonma-yon</b>, chapdan o'ngga tiziladi. Bu — odatdagi (sukut) holat: yozmasangiz ham flex shu tomonga tizadi.</>,
+        vis: <RcFlow items={['A', 'B', 'C']} /> },
+      { ic: '↕️', h: 'column — ustma-ust ustun',
+        body: <><b className="mono">flex-direction: column</b> — ichki elementlar <b>ustma-ust</b>, yuqoridan pastga tiziladi. Menyu bandlarini vertikal ro'yxat qilmoqchi bo'lsangiz — aynan shu.</>,
+        vis: <RcFlow items={['A', 'B', 'C']} sep="↓" /> },
+      { ic: '🧭', h: "Yo'nalishni bir so'z hal qiladi",
+        body: <>Faqat qiymatni almashtirasiz: <b className="mono">row</b> — qator, <b className="mono">column</b> — ustun. Muhim: avval <b className="mono">display: flex</b> bo'lsin, aks holda flex-direction ishlamaydi.</>,
+        vis: <RcFlow items={['row — qator', 'column — ustun']} sep="·" />,
+        ask: "Bandlarni vertikal ustunga tizish uchun qaysi qiymat kerak?" },
     ]
   },
-  // idx 11 — s9: «Shrift o'lchamini qaysi xususiyat?» (nazariya: font-size/family/weight)
-  11: {
-    title: 'Shrift xususiyatlari', cards: [
-      { ic: '📏', h: "font-size — o'lcham",
-        body: <><b className="mono">font-size</b> — harflarning <b>kattaligini</b> belgilaydi, masalan <b className="mono">font-size: 24px</b>. Raqam qancha katta — harf shuncha yirik.</>,
-        vis: <RcFlow items={['16px', '24px', '40px']} sep="·" />,
-        ask: "Sarlavhani kattaroq qilish uchun qaysi xususiyat?" },
-      { ic: '🔤', h: 'font-family — shrift turi',
-        body: <><b className="mono">font-family</b> — harflarning <b>ko'rinishini</b> (turini) tanlaydi: Arial, Georgia, Times. Bu o'lcham emas — shakl.</>,
-        vis: <RcFlow items={['Arial', 'Georgia', 'Times']} sep="·" /> },
-      { ic: '💪', h: 'font-weight — qalinlik',
-        body: <>Matnni <b>qalin</b> qilish uchun <b className="mono">font-weight: bold</b>. Adashtirmang: <b>size</b> — kattalik, <b>family</b> — tur, <b>weight</b> — qalinlik.</>,
-        vis: <RcFlow items={['size — kattalik', 'family — tur', 'weight — qalinlik']} sep="·" /> },
+  // idx 10 — s9: «Flex elementlarni gorizontal markazga nima joylashtiradi?» (justify-content)
+  10: {
+    title: "Joylashtirish: ikki o'q", cards: [
+      { ic: '➡️', h: "Asosiy o'q — qator bo'ylab",
+        body: <><b className="mono">justify-content</b> elementlarni <b>qator bo'ylab</b> (chapdan o'ngga) suradi: <b className="mono">center</b> — markazga, <b className="mono">space-between</b> — chetdan chetga teng.</>,
+        vis: <RcFlow items={['flex-start', 'center', 'space-between']} sep="·" /> },
+      { ic: '⬇️', h: "Ko'ndalang o'q — qatorga ko'ndalang",
+        body: <><b className="mono">align-items</b> elementlarni <b>qatorga ko'ndalang</b> (yuqoridan pastga) tekislaydi: <b className="mono">center</b> — o'rtaga, <b className="mono">flex-start</b> — yuqoriga.</>,
+        vis: <RcFlow items={['flex-start', 'center', 'flex-end']} sep="·" /> },
+      { ic: '🎯', h: "To'liq markaz — ikkalasi birga",
+        body: <>Elementni <b>tom o'rtaga</b> qo'yish uchun ikkalasi kerak: <b className="mono">justify-content: center</b> (qator bo'ylab) va <b className="mono">align-items: center</b> (ko'ndalang).</>,
+        vis: <RcFlow items={['justify: center', 'align: center', '🎯 markaz']} />,
+        ask: "Elementlarni gorizontal markazga qaysi xususiyat joylashtiradi?" },
     ]
   },
-  // idx 14 — s12: «Ichki bo'shliq qaysi xususiyat?» (nazariya: padding va margin)
-  14: {
-    title: "Bo'shliqlar: padding va margin", cards: [
-      { ic: '📦', h: "padding — ICHKI bo'shliq",
-        body: <><b className="mono">padding</b> — kontent bilan elementning cheti orasidagi <b>ichki</b> bo'shliq. Quti ICHIDAGI havo — matn devorga yopishmaydi.</>,
-        vis: <RcFlow items={['quti cheti', '← padding →', 'kontent']} />,
-        ask: "Tugma ichidagi matnga havo berish uchun qaysi xususiyat?" },
-      { ic: '↔️', h: "margin — TASHQI bo'shliq",
-        body: <><b className="mono">margin</b> — element bilan BOSHQA elementlar orasidagi <b>tashqi</b> bo'shliq. Qutilar bir-biriga yopishmasligi uchun.</>,
-        vis: <RcFlow items={['quti A', '← margin →', 'quti B']} /> },
-      { ic: '🎁', h: "Eslab qolish yo'li",
-        body: <>Sovg'a qutisini tasavvur qiling: <b>padding</b> — quti ICHIDAGI to'ldirgich (sovg'a atrofida), <b>margin</b> — qutilar ORASIDAGI masofa.</>,
-        vis: <RcFlow items={['padding — ichkarida', 'margin — tashqarida']} sep="·" /> },
+  // idx 13 — s12: «DevTools'ning qaysi paneli CSS'ni ko'rsatadi?» (Styles)
+  13: {
+    title: 'DevTools: Styles paneli', cards: [
+      { ic: '🔧', h: 'DevTools — brauzer ustaxonasi',
+        body: <>Har brauzerda <b>DevTools</b> bor — <b className="mono">F12</b> bosib ochasiz. U orqali istalgan saytning ichki tuzilishini ko'rasiz: HTML, CSS va boshqalar.</>,
+        vis: <RcFlow items={['F12', 'DevTools ochiladi']} sep="·" /> },
+      { ic: '🎨', h: "Styles — CSS ko'rinadigan panel",
+        body: <>Elementni tanlaganingizda <b className="mono">Styles</b> paneli uning <b>barcha CSS qoidalarini</b> ko'rsatadi. Console — xatolar uchun, Network — fayllar uchun, CSS esa aynan <b className="mono">Styles</b>da.</>,
+        vis: <RcFlow items={['Element tanlanadi', 'Styles', 'CSS qoidalari']} /> },
+      { ic: '⚡', h: "Jonli o'zgartirish",
+        body: <>Styles panelida qiymatni o'zgartirsangiz, sahifa <b>darhol</b> yangilanadi — kodni saqlamasdan sinaysiz. Lekin bu <b>vaqtincha</b>: sahifani yangilasangiz, o'zgarish yo'qoladi.</>,
+        vis: <RcFlow items={["qiymat o'zgaradi", "darhol ko'rinadi"]} sep="·" />,
+        ask: "Elementning CSS qoidalarini DevTools'ning qaysi paneli ko'rsatadi?" },
     ]
   },
 };
@@ -1551,7 +1550,7 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onRevea
   if (data.players === null) return null;
   const total = data.players.length;
   const answered = data.rows.length;
-  const ok = data.rows.filter(a => a.picked === correctIdx).length; // ustunlar bilan BIR manbadan (eskirgan a.correct emas)
+  const ok = data.rows.filter(a => a.picked === correctIdx).length;
   const bad = answered - ok;
   const allIn = total > 0 && answered >= total;
   const struggling = answered >= 2 && bad > ok;
@@ -1787,14 +1786,13 @@ function ScoreRing({ correct, total }) {
 }
 
 // ===== MENTOR (nomsiz ustoz ovozi — intro/izoh shu orqali; audio matni = shu matn) =====
-const MENTOR_IMG = 'https://go.coddycamp.uz/uploads/media_library/c7b711619071c92bef604c7ad68380dd.png';
 const Mentor = ({ children }) => {
   const ctx = useContext(MentorCtx) || {};
   const enabled = !!ctx.enabled;
   const collapsed = enabled && ctx.collapsed;
   const expand = (e) => { e.stopPropagation(); if (ctx.setCollapsed) ctx.setCollapsed(false); };
   return (
-    <div className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
+    <div data-tour="mentor" className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
       <div className="mentor-ava" aria-hidden="true"><img src={MENTOR_IMG} alt="" /></div>
       <div className="mentor-col">
         <span className="mentor-name">Mentor{collapsed && <span className="mentor-cue"> · ko'rsatmani ochish ▾</span>}</span>
@@ -1825,67 +1823,81 @@ const Zoomable = ({ children }) => {
   );
 };
 
-// ===== DEMO KARTA (CSS bor/yo'q solishtirish) =====
-// off — brauzerning xom (CSS'siz) ko'rinishi; on — bezatilgan zamonaviy karta.
-// Farq ataylab keskin: o'quvchi "vauv" desin.
-const DemoCard = ({ on }) => {
-  if (!on) {
-    // Xom HTML — brauzer standartlari: serif shrift, chapga tekis, ko'k tagchizilgan havola
-    return (
-      <div style={{ background: 'transparent', textAlign: 'left', width: '100%', maxWidth: 230, lineHeight: 1.15 }}>
-        <div style={{ width: 54, height: 54, background: '#e7e7e7', border: '1px solid #b3b3b3', color: '#8a8a8a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Times New Roman', serif", fontSize: 12, marginBottom: 7 }}>rasm</div>
-        <h1 style={{ fontFamily: "'Times New Roman', serif", fontSize: 32, fontWeight: 700, color: '#000', margin: '0 0 3px' }}>Aziza</h1>
-        <p style={{ fontFamily: "'Times New Roman', serif", fontSize: 16, color: '#000', margin: '0 0 7px' }}>Web-dasturchi</p>
-        <span style={{ fontFamily: "'Times New Roman', serif", fontSize: 16, color: '#0000ee', textDecoration: 'underline' }}>Obuna</span>
-      </div>
-    );
-  }
-  // Bezatilgan — gradient banner, yumaloq avatar, pill tugma, soya
+// ===== FLEX DEMO HELPER (A/B/C qutilar — sodda) =====
+const FBOX = ({ flex = true, dir = 'row', justify = 'flex-start', align = 'stretch', gap = 10, varied = false, labels, snap = false }) => {
+  const its = varied ? [{ l: 'A', h: 44 }, { l: 'B', h: 78 }, { l: 'C', h: 60 }] : [{ l: 'A' }, { l: 'B' }, { l: 'C' }];
   return (
-    <div className="democard-on" style={{ width: 232, background: '#fff', borderRadius: 18, overflow: 'hidden', textAlign: 'center', fontFamily: "'Manrope', sans-serif", boxShadow: `0 20px 44px -16px rgba(${T.shadowBase},0.38)` }}>
-      <div style={{ height: 48, background: `linear-gradient(120deg, ${T.accent}, #ff9166)` }} />
-      <div style={{ marginTop: -32, padding: '0 18px 20px' }}>
-        <div style={{ width: 64, height: 64, borderRadius: '50%', background: `linear-gradient(135deg, ${T.accent}, #ff9166)`, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 27, border: '3px solid #fff', boxShadow: `0 8px 18px -6px rgba(255,79,40,0.6)` }}>A</div>
-        <h1 style={{ fontSize: 21, color: T.ink, margin: '10px 0 1px', fontWeight: 800 }}>Aziza</h1>
-        <p style={{ color: T.accent, fontWeight: 700, fontSize: 12.5, letterSpacing: '0.03em', margin: '0 0 14px' }}>Web-dasturchi</p>
-        <span style={{ display: 'inline-block', background: T.accent, color: '#fff', borderRadius: 10, padding: '9px 24px', fontWeight: 700, fontSize: 13, boxShadow: `0 8px 18px -6px rgba(255,79,40,0.5)` }}>Obuna</span>
-      </div>
+    <div style={{ display: flex ? 'flex' : 'block', flexDirection: dir, justifyContent: justify, alignItems: align, gap, background: T.bg, borderRadius: 12, padding: 10, minHeight: 104, transition: 'all 0.35s cubic-bezier(.34,1.1,.4,1)' }}>
+      {its.map((it, i) => (<div key={i} className={snap && flex ? 'fbx snap' : 'fbx'} style={{ background: T.accent, color: '#fff', borderRadius: 8, minHeight: it.h || 38, padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Manrope', sans-serif", fontWeight: 700, fontSize: 14, marginBottom: flex ? 0 : 6, animationDelay: `${i * 0.09}s` }}>{(labels && labels[i]) || it.l}</div>))}
+    </div>
+  );
+};
+
+// ===== NAVBAR — "haqiqiy sayt" menyusi (qaytalanuvchi artefakt, ixcham) =====
+const Navbar = ({ flex = true, dir = 'row', justify = 'space-between', align = 'center', gap = 10, snap = false }) => {
+  const itemStyle = { display: 'flex', alignItems: 'center', justifyContent: dir === 'column' ? 'center' : 'flex-start', marginBottom: flex ? 0 : 6 };
+  const itemCls = flex && snap ? 'nav-snap' : undefined;
+  const iStyle = (i) => (flex && snap ? { ...itemStyle, animationDelay: `${i * 0.09}s` } : itemStyle);
+  return (
+    <div style={{ display: flex ? 'flex' : 'block', flexDirection: dir, justifyContent: justify, alignItems: align, gap, background: '#fff', borderRadius: 10, padding: '9px 12px', transition: 'all 0.4s cubic-bezier(.34,1.1,.4,1)', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.05)' }}>
+      <div className={itemCls} style={iStyle(0)}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 19, height: 19, borderRadius: 5, background: T.accent, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Manrope'", fontWeight: 800, fontSize: 11 }}>C</span><span style={{ fontFamily: "'Manrope'", fontWeight: 800, fontSize: 13, color: T.ink }}>Coddy</span></span></div>
+      <div className={itemCls} style={{ ...iStyle(1), gap: 11 }}><span style={{ display: 'inline-flex', gap: 11 }}>{['Asosiy', 'Darslar'].map(x => <span key={x} style={{ fontFamily: "'Manrope'", fontWeight: 600, fontSize: 12, color: T.ink2 }}>{x}</span>)}</span></div>
+      <div className={itemCls} style={iStyle(2)}><span style={{ background: T.accent, color: '#fff', borderRadius: 7, padding: '5px 11px', fontFamily: "'Manrope'", fontWeight: 700, fontSize: 12, display: 'inline-block', whiteSpace: 'nowrap' }}>Kirish</span></div>
+    </div>
+  );
+};
+
+// ===== AXIS DEMO — flex qutilar + o'q strelkasi (asosiy/ko'ndalang o'q modeli) =====
+const AxisDemo = ({ justify = 'flex-start', align = 'stretch', dir = 'row', varied = false, gap = 12, axis = null }) => {
+  const its = varied ? [{ l: '1', h: 38 }, { l: '2', h: 72 }, { l: '3', h: 54 }] : [{ l: '1' }, { l: '2' }, { l: '3' }];
+  const boxes = (
+    <div style={{ display: 'flex', flexDirection: dir, justifyContent: justify, alignItems: align, gap, flex: 1, minHeight: 112, background: T.bg, borderRadius: 12, padding: 12, transition: 'all 0.35s cubic-bezier(.34,1.1,.4,1)' }}>
+      {its.map((it, i) => (<div key={i} className="fx-box" style={{ minHeight: it.h || 40 }}>{it.l}</div>))}
+    </div>
+  );
+  return (
+    <div className="axis-stage">
+      {axis === 'main' && (
+        <div className="axis-main"><span className="axis-head">asosiy o'q (justify-content)</span><span className="axis-line"><span className="axis-bead" /><span className="axis-tip">▶</span></span></div>
+      )}
+      {axis === 'cross' ? (
+        <div className="axis-crosswrap">
+          <div className="axis-cross"><span className="axis-vline"><span className="axis-bead v" /><span className="axis-tip v">▼</span></span><span className="axis-head v">ko'ndalang o'q</span></div>
+          {boxes}
+        </div>
+      ) : boxes}
     </div>
   );
 };
 
 // ===== SCREEN 0 — HOOK =====
 const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
-  const audio = useAudio([{ id: 's0', text: `Mana ikkita sahifa. Ichidagi matn — bir xil, bitta harf ham farq qilmaydi. Lekin biri oddiy, biri chiroyli. Sizningcha, nima ularni farqlaydi? Tugmani bosib, ikkalasini solishtiring.`, trigger: 'on_mount', waits_for: { type: 'option_picked' } }]);
+  const audio = useAudio([{ id: 's0', text: `Mana saytning menyusi. Lekin tugmalar ustma-ust tushib qolgan — chiroyli emas. Aslida menyu yonma-yon qatorda turishi kerak. Sizningcha, elementlarni yonma-yon qatorga nima tizadi? Avval tugmani bosib, farqni ko'ring.`, trigger: 'on_mount', waits_for: { type: 'option_picked' } }]);
   const [picked, setPicked] = useState(storedAnswer?.picked ?? null);
-  const [on, setOn] = useState(false);
-  const OPTS = [
-    { id: 'a', label: 'HTML — sahifa tuzilishi' },
-    { id: 'b', label: 'CSS — bezak (dizayn) tili' },
-    { id: 'c', label: 'Yangi rasm qo\'shilgan' }
-  ];
+  const [row, setRow] = useState(false);
+  const OPTS = [{ id: 'a', label: 'Shunchaki HTML — o\'zi qatorga tizadi' }, { id: 'b', label: 'CSS Flexbox' }, { id: 'c', label: 'Ko\'p bo\'sh joy qo\'shish' }];
   const pick = (v) => { if (picked !== null) return; setPicked(v); onAnswer(screen, { stage: 'hook', screenIdx: screen, picked: v, correct: true }); audio.triggerEvent('option_picked'); };
   return (
     <Stage eyebrow="Kirish" screen={screen} audioState={audio} navContent={<NavNext disabled={picked === null} label="Davom etish" onClick={onNext} />}>
       <div className="screen">
-        <h1 className="title h-title fade-up" style={{ maxWidth: 760 }}>Bir xil matn — nega biri <span className="italic" style={{ color: T.accent }}>chiroyli</span>?</h1>
-        <Mentor>Mana ikkita sahifa. Ichidagi matn — <b style={{ color: T.ink }}>bir xil</b>, bitta harf ham farq qilmaydi. Lekin biri oddiy, biri chiroyli. Tugmani bosib, farqni ko'ring.</Mentor>
+        <h1 className="title h-title fade-up" style={{ maxWidth: 760 }}>Tugmalar nega <span className="italic" style={{ color: T.accent }}>yonma-yon</span> turmaydi?</h1>
+        <Mentor>Mana saytning menyusi — lekin tugmalar <b style={{ color: T.ink }}>ustma-ust</b> tushib qolgan. Aslida menyu yonma-yon qatorda turishi kerak. Tugmani bosib, farqni ko'ring.</Mentor>
         <Zoomable>
         <Split>
           <Col>
             <div className="fade-up delay-1" style={{ display: 'flex', gap: 8 }}>
-              <button className={`chip ${!on ? 'chip-on' : ''}`} onClick={() => setOn(false)}>Oddiy</button>
-              <button className={`chip ${on ? 'chip-on' : ''}`} onClick={() => setOn(true)}>✨ Bezakli</button>
+              <button className={`chip ${!row ? 'chip-on' : ''}`} onClick={() => setRow(false)}>Ustma-ust</button>
+              <button className={`chip ${row ? 'chip-on' : ''}`} onClick={() => setRow(true)}>✨ Yonma-yon</button>
             </div>
-            <Preview title="profil.html" minH={170}><div key={on ? 'on' : 'off'} className="demo-swap" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 130 }}><DemoCard on={on} /></div></Preview>
-            <p className="mono small" style={{ color: T.ink3, margin: 0, textAlign: 'center' }}>{on ? '✨ CSS qo\'shilgan — ranglar, shrift, bo\'shliq' : 'CSS yo\'q — brauzerning oddiy ko\'rinishi'}</p>
+            <Preview title="coddy.uz" minH={150}><div style={{ display: 'flex', alignItems: 'center', minHeight: 110 }}><div style={{ width: '100%' }}><Navbar flex={row} snap /></div></div></Preview>
+            <p className="mono small" style={{ color: T.ink3, margin: 0, textAlign: 'center' }}>{row ? '✨ display: flex — menyu bir qatorda' : 'Sukut bo\'yicha — ustma-ust (block)'}</p>
           </Col>
           <Col>
-            <p className="eyebrow fade-up delay-2" style={{ color: T.ink2, margin: 0 }}>Sizningcha, nima ularni farqlaydi?</p>
+            <p className="eyebrow fade-up delay-2" style={{ color: T.ink2, margin: 0 }}>Elementlarni qatorga nima tizadi?</p>
             <div className="fade-up delay-3" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {OPTS.map(o => { const sel = picked === o.id; return (<button key={o.id} className={`hook-option ${sel ? 'on' : ''}`} disabled={picked !== null} onClick={() => pick(o.id)}><span className="radio">{sel && <span className="radio-dot" />}</span><span>{o.label}</span></button>); })}
             </div>
-            {picked !== null && <p className="hook-ack fade-step">Aynan! HTML — skelet, CSS esa uni bezaydi: ranglar, shriftlar, bo'shliqlar.</p>}
+            {picked !== null && <p className="hook-ack fade-step">Aynan! CSS Flexbox elementlarni qatorga tizadi va joylashtiradi. Bugun shuni o'rganamiz.</p>}
           </Col>
         </Split>
         </Zoomable>
@@ -1896,20 +1908,33 @@ const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
 
 // ===== SCREEN 1 — REJA =====
 const Screen1 = ({ screen, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's1', text: `HTML bilan sahifa skeletini qurdingiz. Endi CSS bilan uni bezaymiz. Bugun 5 qadamda o'rganasiz: CSS nima, qanday yoziladi, ranglar, shriftlar va bo'shliqlar. Dars oxirida mana shunday chiroyli karta yasaysiz.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's1', text: `Ishonasizmi — dars oxirida mana shu sayt menyusini — logo, havolalar va Kirish tugmasi — o'zingiz yonma-yon, tartibli joylashtirasiz. Xuddi haqiqiy saytlardagidek. Buning kaliti — Flexbox. Beshta qadamda yetib boramiz.`, trigger: 'on_mount', waits_for: null }]);
   const STEPS = [
-    { text: 'CSS nima?', tag: 'bezak tili' },
-    { text: 'Qanday yoziladi', tag: 'selektor { ... }' },
-    { text: 'Ranglar', tag: 'color, background' },
-    { text: 'Shriftlar', tag: 'font-family, size' },
-    { text: 'Bo\'shliqlar', tag: 'padding, margin' }
+    { text: 'Block va inline', tag: 'joylashuv' },
+    { text: 'Flexbox — display: flex', tag: 'yonma-yon' },
+    { text: 'Yo\'nalish va bo\'shliq', tag: 'direction, gap' },
+    { text: 'Joylashtirish', tag: 'justify, align' },
+    { text: 'DevTools bilan CSS', tag: 'Styles' }
   ];
   const isNarrow = useIsMobile(768);
   const [showSteps, setShowSteps] = useState(false);
   const PreviewBlock = (
     <Col>
-      <p className="flow-label">Dars oxirida shu kartani bezaysiz</p>
-      <Preview title="mening-kartam.html" minH={200}><div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 160 }}><DemoCard on={true} /></div></Preview>
+      <p className="flow-label">Manzil — dars oxirida shu menyuni yasaysiz</p>
+      <Zoomable>
+      <Preview title="coddy.uz" minH={200}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Navbar flex justify="space-between" snap />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '2px 2px 0' }}>
+            <div className="fade-up delay-2" style={{ height: 9, width: '52%', background: '#e6e3dc', borderRadius: 5 }} />
+            <div className="fade-up delay-3" style={{ height: 7, width: '82%', background: '#efece6', borderRadius: 4 }} />
+            <div className="fade-up delay-3" style={{ height: 7, width: '66%', background: '#efece6', borderRadius: 4 }} />
+            <div className="fade-up delay-4" style={{ height: 7, width: '40%', background: '#efece6', borderRadius: 4 }} />
+          </div>
+          <span style={{ alignSelf: 'center', fontFamily: "'Manrope', sans-serif", fontWeight: 600, fontSize: 11.5, color: T.accent, background: T.accentSoft, padding: '3px 12px', borderRadius: 99 }}>↑ Logo · havolalar · Kirish — yonma-yon menyu</span>
+        </div>
+      </Preview>
+      </Zoomable>
     </Col>
   );
   const StepsBlock = (
@@ -1921,8 +1946,8 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
   return (
     <Stage eyebrow="Reja" screen={screen} audioState={audio} mentorStatic navContent={<><NavBack onPrev={onPrev} /><NavNext label="Boshlaymiz →" onClick={onNext} /></>}>
       <div className="screen">
-        <div className="head"><h2 className="title h-title fade-up"><span className="italic" style={{ color: T.accent }}>Sahifani bezashni o'rganamiz!</span></h2></div>
-        <Mentor>HTML bilan sahifa <b style={{ color: T.ink }}>skeletini</b> qurdingiz. Endi <b style={{ color: T.ink }}>CSS</b> bilan uni bezaymiz: ranglar, shriftlar, bo'shliqlar. <b style={{ color: T.ink }}>5 qadamda</b> o'rganamiz.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up"><span className="italic" style={{ color: T.accent }}>Bugun chinakam sayt menyusini yasaymiz!</span></h2></div>
+        <Mentor>Ishonasizmi — dars oxirida mana shu <b style={{ color: T.ink }}>sayt menyusini</b> — logo, havolalar, Kirish tugmasi — o'zingiz yonma-yon, tartibli joylashtirasiz. Kaliti — <b style={{ color: T.ink }}>Flexbox</b>. <b style={{ color: T.ink }}>5 qadamda</b> yetib boramiz.</Mentor>
         {!isNarrow ? (<Split>{PreviewBlock}{StepsBlock}</Split>)
           : !showSteps ? (<div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px,2vw,16px)' }}>{PreviewBlock}<button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => setShowSteps(true)}>📋 5 qadamni ko'rish</button></div>)
           : (<div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px,2vw,16px)' }}><button className="btn-soft" style={{ alignSelf: 'flex-start' }} onClick={() => setShowSteps(false)}>↩ Natijani ko'rish</button>{StepsBlock}</div>)}
@@ -1931,27 +1956,31 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
   );
 };
 
-// ===== SCREEN 2 — CSS NIMA (skelet vs bezak) =====
+// ===== SCREEN 2 — BLOCK va INLINE =====
 const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's2', text: `Yaxshi taqqoslash: HTML — uyning skeleti, devorlar va xonalar. CSS — bo'yoq, mebel, pardalar. Skelet bo'lmasa uy qulaydi, bezak bo'lmasa uy quruq. Ikkalasi birga kerak. Tugmani bosib, CSS'ni yoqing.`, trigger: 'on_mount', waits_for: null }]);
-  const [on, setOn] = useState(!!storedAnswer);
-  const done = on;
-  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
+  const audio = useAudio([{ id: 's2', text: `Avval bir narsani tushunaylik — nega menyu ustma-ust tushdi? Sababi: ba'zi elementlar block, ya'ni har biri butun qatorni egallaydi, xuddi bino qavatlari kabi — biri ostida ikkinchisi. Bular div, h1, p. Ba'zilari esa inline — matn ichidagi so'zlar kabi yonma-yon turadi, masalan span va a. Tugmani bosib, ikkalasini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const [mode, setMode] = useState('block');
+  const [touched, setTouched] = useState(!!storedAnswer);
+  const done = touched;
+  const set = (m) => { setMode(m); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); };
   return (
-    <Stage eyebrow="CSS nima" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "CSS'ni yoqing"} onClick={onNext} /></>}>
+    <Stage eyebrow="Block / inline" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Ikkalasini ko'ring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">HTML va CSS — <span className="italic" style={{ color: T.accent }}>vazifasi</span> nimada?</h2></div>
-        <Mentor>Buni shunday tasavvur qiling: <b style={{ color: T.ink }}>HTML</b> — uyning skeleti (devorlar, xonalar). <b style={{ color: T.ink }}>CSS</b> — bo'yoq, mebel, pardalar. Skelet bo'lmasa uy qulaydi, bezak bo'lmasa uy quruq. Tugmani bosib, CSS'ni yoqing.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">Nega menyu <span className="italic" style={{ color: T.accent }}>ustma-ust</span> tushdi?</h2></div>
+        <Mentor><b style={{ color: T.ink }}>block</b> elementlar (div, h1, p) butun qatorni egallaydi — xuddi <b style={{ color: T.ink }}>bino qavatlari</b> kabi, biri ostida ikkinchisi. <b style={{ color: T.ink }}>inline</b> elementlar (span, a) <b style={{ color: T.ink }}>matn ichidagi so'zlar</b> kabi yonma-yon turadi. Tugmani bosing.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
-            <div className="flow-label">{on ? 'HTML + CSS' : 'Faqat HTML'}</div>
-            <Preview title="sahifa.html" minH={170}><div key={on ? 'on' : 'off'} className="demo-swap" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 130 }}><DemoCard on={on} /></div></Preview>
-            <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => setOn(o => !o)}>{on ? '↩ CSS\'ni o\'chirish' : '🎨 CSS\'ni yoqish'}</button>
+            <div className="fade-up delay-2" style={{ display: 'flex', gap: 8 }}><button className={`chip ${mode === 'block' ? 'chip-on' : ''}`} onClick={() => set('block')}>📋 block (div)</button><button className={`chip ${mode === 'inline' ? 'chip-on' : ''}`} onClick={() => set('inline')}>📝 inline (span)</button></div>
+            <Preview title="element.html" minH={150}>
+              {mode === 'block'
+                ? (<div key="b" className="demo-swap"><p className="bi-cap">Har biri <b>butun qatorni</b> egallaydi — shuning uchun ustma-ust ↓</p>{['A', 'B', 'C'].map((t, i) => (<div key={i} className="bi-block" style={{ animationDelay: `${i * 0.08}s` }}><span><span className="bi-tag">&lt;div&gt;</span> Blok {t}</span><span className="bi-full">↔ 100%</span></div>))}</div>)
+                : (<div key="i" className="demo-swap"><p className="bi-cap">Faqat <b>o'z kengligini</b> egallaydi — matn ichida yonma-yon ↓</p><div style={{ lineHeight: 2.6, fontFamily: "'Georgia, serif'", fontSize: 15, color: T.ink }}>Bu matn ichida {['span A', 'span B', 'span C'].map((t, i) => (<span key={i} className="bi-inline" style={{ animationDelay: `${i * 0.08}s` }}>{t}</span>))} yonma-yon turibdi.</div></div>)}
+            </Preview>
           </div>
           <div className="col">
-            <div className="ana2"><div className="ana2-row"><span className="ana2-tag">HTML</span><span className="ana2-txt">🏗️ skelet — tuzilish, kontent</span></div><div className="ana2-row"><span className="ana2-tag ana2-css">CSS</span><span className="ana2-txt">🎨 bezak — rang, shrift, bo'shliq</span></div></div>
-            <div className={on ? 'frame-success fade-step' : 'hint'}><p className="body" style={{ margin: 0, color: T.ink }}>{on ? <>✓ Bir xil HTML, lekin CSS qo'shildi — va sahifa <b>jonlandi</b>. Kontent o'zgarmadi, faqat <b>ko'rinishi</b> o'zgardi.</> : <>Hozir faqat HTML — brauzerning quruq ko'rinishi. CSS qo'shilsa, sahifa chiroyli bo'ladi.</>}</p></div>
+            <div className={mode === 'block' ? 'frame-soft fade-step' : 'frame-success fade-step'} key={mode}><p className="body" style={{ margin: 0, color: T.ink }}>{mode === 'block' ? <><b>block</b> — har biri to'liq qatorni egallaydi, shuning uchun ustma-ust tushadi. div, h1, p, ul — barchasi block.</> : <><b>inline</b> — faqat o'z kengligini egallaydi, shuning uchun yonma-yon turadi. span, a, strong — inline.</>}</p></div>
+            <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Muammo:</b> menyu bo'laklari (div) block bo'lgani uchun ustma-ust tushdi. Ularni yonma-yon qilish uchun — <b>Flexbox</b> kerak. Keyingi qadam!</p></div>
           </div>
         </div>
         </Zoomable>
@@ -1959,9 +1988,53 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     </Stage>
   );
 };
-// ===== SCREEN 3 — SINTAKSIS =====
-// 🧲 Qayta ishlatiladigan DRAG&DROP — bo'laklarni to'g'ri tartibda joylash (etalon 9.1)
-function DragDropOrder({ items, hints, onSolved, doneText = "✓ To'g'ri! Aynan shu tartibda." }) {
+// ===== SCREEN 3 — DISPLAY: FLEX (konteyner vs ichki element) =====
+const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 's3', text: `Mana eng muhim xususiyat: display flex. Xuddi tokchaga kitoblarni tik terib qo'ygandek — siz uni konteynerga, ya'ni qutilarni o'rab turgan qatorga berasiz, va ichidagi barcha elementlar darhol yonma-yon tiziladi. Muhim: flex ichki elementlarga emas, konteynerga yoziladi. Avval flexni yoqing, so'ng konteyner va ichki elementni bosib ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const [flex, setFlex] = useState(!!storedAnswer);
+  const [part, setPart] = useState(null);
+  const [seen, setSeen] = useState(() => new Set(storedAnswer ? ['box', 'kid'] : []));
+  const isNarrow = useIsMobile(768);
+  const done = flex;
+  const tap = (k) => { setPart(k); setSeen(prev => { const n = new Set(prev); n.add(k); return n; }); };
+  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
+  const PART = {
+    box: { lbl: 'KONTEYNER', txt: <>Bu — <b>konteyner</b> (.row). <span className="mono">display: flex</span> aynan shunga yoziladi. U ichki elementlarini qatorga tizadigan "tokcha".</> },
+    kid: { lbl: 'ICHKI', txt: <>Bu — <b>ichki element</b> (konteyner ichidagi element). Unga hech narsa yozmaysiz — konteyner flex bo'lsa, u o'zi tiziladi.</> }
+  };
+  return (
+    <Stage eyebrow="display: flex" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "flex'ni yoqing"} onClick={onNext} /></>}>
+      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
+        <div className="head"><h2 className="title h-title fade-up">Elementlarni qatorga qanday <span className="italic" style={{ color: T.accent }}>tizamiz</span>?</h2></div>
+        <Mentor>Eng muhim xususiyat: <span className="mono">display: flex</span>. Xuddi <b style={{ color: T.ink }}>tokchaga kitob terish</b> kabi — uni <b style={{ color: T.ink }}>konteynerga</b> berasiz, ichidagi elementlar o'zi tiziladi. Flexni yoqing, so'ng <b style={{ color: T.ink }}>konteyner</b> va <b style={{ color: T.ink }}>ichki element</b>ni bosib ko'ring.</Mentor>
+        <Zoomable>
+        <div className="split">
+          <div className="col">
+            <button className={`btn ${!flex ? 'btn-pulse' : ''}`} style={{ alignSelf: 'flex-start' }} onClick={() => setFlex(f => !f)}>{flex ? '↩ flex\'ni o\'chirish' : '🎯 display: flex yoqish'}</button>
+            {!isNarrow && <pre className="code-box fade-up delay-2" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>.row</span> {'{'} <span style={{ color: CODE.comment }}>/* konteyner */</span>{'\n  '}<span style={{ color: CODE.attr }}>display</span>: <span style={{ color: flex ? CODE.str : CODE.comment }}>{flex ? 'flex' : 'block'}</span>;{'\n'}{'}'}</pre>}
+            {part && <div className="sk-info fade-step" key={part}><span className="sk-tagbig"><span className="sk-wordbadge">{PART[part].lbl}</span></span><p className="body" style={{ color: T.ink, margin: '10px 0 0' }}>{PART[part].txt}</p></div>}
+          </div>
+          <div className="col">
+            <div className="flow-label">Natija — bosib o'rganing</div>
+            <Preview title="qator.html" minH={120}>
+              <div className={`cdiag ${part === 'box' ? 'on' : ''} ${flex && part === null ? 'tapme' : ''}`} onClick={() => tap('box')} title="konteyner">
+                <span className="cdiag-tag">.row (konteyner)</span>
+                <div style={{ display: flex ? 'flex' : 'block', gap: 10, transition: 'all 0.35s cubic-bezier(.34,1.1,.4,1)' }}>
+                  {['1', '2', '3'].map((n, i) => (<div key={n} className={`fx-box kid ${part === 'kid' && i === 0 ? 'lit' : ''} ${flex ? 'snap' : ''}`} style={{ marginBottom: flex ? 0 : 8, animationDelay: `${i * 0.09}s` }} onClick={(e) => { e.stopPropagation(); tap('kid'); }}>{n}</div>))}
+                </div>
+              </div>
+            </Preview>
+            <div className={flex ? 'frame-success fade-step' : 'hint'}><p className="body" style={{ margin: 0, color: T.ink }}>{flex ? <>✓ <span className="mono">display: flex</span> — uchala element bir qatorga tizildi! {seen.size < 2 && 'Endi konteyner va ichki elementni bosib, farqini ko\'ring.'}</> : <>Hozir elementlar ustma-ust (block). <span className="mono">display: flex</span> ularni qatorga tizadi.</>}</p></div>
+          </div>
+        </div>
+        </Zoomable>
+      </div>
+    </Stage>
+  );
+};
+
+// ===== 🧩 DRAG-DROP ORDER — bo'laklarni to'g'ri tartibda slotlarga sudrash (L1'dan) =====
+function DragDropOrder({ items, hints, onSolved }) {
   const order = items.map(x => x.id);
   const byId = useMemo(() => Object.fromEntries(items.map(x => [x.id, x])), [items]);
   // YAGONA holat — pool va slots birga (setState ichida setState YO'Q → StrictMode'da dublikat bo'lmaydi)
@@ -2032,70 +2105,41 @@ function DragDropOrder({ items, hints, onSolved, doneText = "✓ To'g'ri! Aynan 
         {pool.length === 0 && !solved && <span className="dd-pool-empty">Tartib xato — bo'lakni bosib qaytaring va qayta joylang</span>}
         {pool.map(id => <button key={id} className="dd-chip" onPointerDown={(e) => down(e, id, 'pool')}>{byId[id].label}</button>)}
       </div>
-      {solved && <div className="dd-done">{doneText}</div>}
+      {solved && <div className="dd-done">✓ To'g'ri! CSS qoidasi aynan shu tartibda yoziladi.</div>}
       {wrong && !solved && <div className="dd-wrong">⚠️ Tartib xato — qayta joylang.</div>}
     </div>
   );
 }
-// CSS qoidasi qismlari — to'g'ri tartibda: selektor { xususiyat: qiymat; }
-const CSS_RULE_PIECES = [
-  { id: 'sel', label: 'h1' },
-  { id: 'open', label: '{' },
-  { id: 'prop', label: 'color:' },
-  { id: 'val', label: 'red;' },
+
+// ===== SCREEN 3b — QOIDA USTAXONASI (display: flex qoidasini bo'laklardan yig'ish) =====
+const FLEX_RULE_PIECES = [
+  { id: 'sel',   label: '.row' },
+  { id: 'open',  label: '{' },
+  { id: 'prop',  label: 'display:' },
+  { id: 'val',   label: 'flex' },
+  { id: 'semi',  label: ';' },
   { id: 'close', label: '}' },
 ];
-
-const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's3', text: `CSS qoidasi 3 qismdan iborat. Selektor — qaysi elementni bezashni aytadi. Xususiyat — nimani o'zgartirishni. Qiymat — qanday bo'lishini. Mana: h1 ochiq qavs, color ikki nuqta red nuqta-vergul, yopiq qavs. Har bir qismni bosib, vazifasini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const PARTS = {
-    sel: { label: 'Selektor', role: "Qaysi elementni bezashni ko'rsatadi. Bu yerda h1 — sahifadagi barcha h1 sarlavhalar." },
-    prop: { label: 'Xususiyat', role: "Nimani o'zgartirishni aytadi. color — matn rangi." },
-    val: { label: 'Qiymat', role: "Qanday bo'lishini aytadi. red — qizil rang." }
-  };
-  const [active, setActive] = useState(null);
-  const [clicked, setClicked] = useState(() => storedAnswer ? new Set(['sel', 'prop', 'val']) : new Set());
-  const [dragDone, setDragDone] = useState(!!storedAnswer);
-  const isNarrow = useIsMobile(768);
-  const explored = clicked.size === 3;        // 3 qismni bosib o'rgandi
-  const done = explored && dragDone;          // ...va qismlarni to'g'ri tartibladi
-  const tap = (k) => { setActive(k); setClicked(prev => { const n = new Set(prev); n.add(k); return n; }); };
-  const cp = (k) => `csspart ${active === k ? 'on' : ''} ${clicked.has(k) ? 'seen' : ''}`;
-  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
+const Screen3b = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 's3b', text: `Endi qoidani o'zingiz yig'ing. Bo'laklarni to'g'ri tartibda kataklarga sudrang: avval selektor, so'ng ochuvchi qavs, xususiyat, qiymat, nuqta-vergul va yopuvchi qavs. To'g'ri yig'ilsa, yonidagi menyu ustma-ustdan yonma-yon qatorga o'tadi.`, trigger: 'on_mount', waits_for: null }]);
+  const [flex, setFlex] = useState(!!storedAnswer);
+  const done = flex;
+  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true }); }, [done]); // eslint-disable-line
   return (
-    <Stage eyebrow="Sintaksis" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : explored ? "Qismlarni tartiblang" : `${clicked.size}/3 qism ko'rilgan`} onClick={onNext} /></>}>
+    <Stage eyebrow="Qoida ustaxonasi" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "qoidani yig'ing"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">CSS qoidasi qanday <span className="italic" style={{ color: T.accent }}>yoziladi</span>?</h2></div>
-        <Mentor>CSS qoidasi 3 qismdan iborat: <b style={{ color: T.ink }}>selektor</b> (qaysi element), <b style={{ color: T.ink }}>xususiyat</b> (nima), <b style={{ color: T.ink }}>qiymat</b> (qanday). Har bir qismni bosib, vazifasini ko'ring.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up"><span className="italic" style={{ color: T.accent }}>display: flex</span> qoidasini o'zingiz yig'ing</h2></div>
+        <Mentor>Bo'laklarni <b style={{ color: T.ink }}>to'g'ri tartibda</b> kataklarga sudrang: selektor → qavs → xususiyat → qiymat → nuqta-vergul → yopuvchi qavs. To'g'ri yig'ilsa, yonidagi menyu qatorga tiziladi.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
-            <pre className="code-box fade-up delay-2" style={{ fontSize: 'clamp(16px,2.6vw,22px)', textAlign: 'center', lineHeight: 2 }}>
-              <span className={cp('sel')} onClick={() => tap('sel')} style={{ color: CODE.tag }}>h1</span>
-              <span style={{ color: CODE.text }}>{' { '}</span>
-              <span className={cp('prop')} onClick={() => tap('prop')} style={{ color: CODE.attr }}>color</span>
-              <span style={{ color: CODE.text }}>: </span>
-              <span className={cp('val')} onClick={() => tap('val')} style={{ color: CODE.str }}>red</span>
-              <span style={{ color: CODE.text }}>; </span>
-              <span style={{ color: CODE.text }}>{'}'}</span>
-            </pre>
-            <div className="csslegend fade-up delay-2">
-              {['sel', 'prop', 'val'].map(k => (<span key={k} className={`csstab ${clicked.has(k) ? 'seen' : ''} ${active === k ? 'on' : ''}`} onClick={() => tap(k)}>{clicked.has(k) ? '✓' : '•'} {PARTS[k].label}</span>))}
-            </div>
+            <div className="flow-label">bo'laklarni tartibga soling</div>
+            <DragDropOrder items={FLEX_RULE_PIECES} hints={["qaysi element", "qoida boshlanadi", "qaysi xususiyat", "xususiyat qiymati", "qatorni tugatadi", "qoida tugaydi"]} onSolved={() => setFlex(true)} />
           </div>
           <div className="col">
-            {done ? (
-              <div className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Sintaksisni o'rgandingiz</p><p className="body" style={{ margin: 0, color: T.ink }}><b>selektor { '{' } xususiyat: qiymat; { '}' }</b> — barcha CSS shu shaklda yoziladi.</p></div>
-            ) : explored ? (
-              <div className="fade-step">
-                <p className="eyebrow" style={{ color: T.accent, margin: '0 0 2px' }}>🧲 Endi o'zingiz yig'ing</p>
-                <p className="body" style={{ margin: '0 0 10px', color: T.ink2, fontSize: 13.5 }}>Bo'laklarni to'g'ri tartibda joylang — CSS qoidasi shaklini o'zingiz quring.</p>
-                <DragDropOrder items={CSS_RULE_PIECES} hints={["qaysi element", "qavs ochiladi", "nima (xususiyat)", "qanday (qiymat)", "qavs yopiladi"]} onSolved={() => setDragDone(true)} doneText="✓ To'g'ri! CSS qoidasi aynan shu tartibda." />
-              </div>
-            ) : active ? (
-              <div className="sk-info fade-step" key={active}><span className="sk-tagbig"><span className="sk-wordbadge">{PARTS[active].label}</span></span><p className="body" style={{ color: T.ink, margin: '11px 0 0' }}>{PARTS[active].role}</p></div>
-            ) : (!isNarrow ? <div className="frame-dash"><p className="small" style={{ color: T.ink3, textAlign: 'center', fontStyle: 'italic', margin: 0 }}>Koddan bir qismni bosing</p></div> : null)}
-            {!explored && <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Eslatma:</b> har bir qator <span className="mono">;</span> (nuqta-vergul) bilan tugaydi — bu juda muhim!</p></div>}
+            <div className="flow-label">Natija — menyu preview</div>
+            <Preview title="menyu.html" minH={120}><Navbar flex={flex} snap /></Preview>
+            <div className={flex ? 'frame-success fade-step' : 'hint'}><p className="body" style={{ margin: 0, color: T.ink }}>{flex ? <>✓ Qoida to'g'ri! <span className="mono">display: flex</span> menyuni bir qatorga tizdi.</> : <>Hozir menyu bo'laklari ustma-ust (block). Qoidani to'g'ri yig'ing — qatorga tiziladi.</>}</p></div>
           </div>
         </div>
         </Zoomable>
@@ -2104,97 +2148,39 @@ const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
-// ===== SCREEN 3b — CSS'ni HTML'ga ulash: inline / internal / external =====
-const CSS_WAYS = {
-  inline: {
-    label: 'Inline', where: 'Teg ichida', tag: 'style="..."',
-    code: '<h1 style="color: red;">Salom!</h1>',
-    role: <>Uslub to'g'ridan-to'g'ri tegning <b>style</b> atributi ichida yoziladi. Eng tez usul — lekin har teg uchun qaytadan yozish kerak, shuning uchun kam ishlatiladi.</>,
-  },
-  internal: {
-    label: 'Internal', where: 'Sahifa ichida', tag: '<style> … </style>',
-    code: '<style>\n  h1 { color: red; }\n</style>',
-    role: <>Uslub HTML sahifaning ichida, <b>{'<style>'}</b> tegi orasida yoziladi. Bitta sahifa uchun qulay — kod va bezak bir joyda turadi.</>,
-  },
-  external: {
-    label: 'External ⭐', where: 'Alohida .css fayl', tag: 'style.css + <link>',
-    code: '/* style.css */\nh1 { color: red; }',
-    role: <>Uslub alohida <b>.css</b> faylda yoziladi, HTML unga <b>{'<link>'}</b> bilan ulanadi. Eng toza va professional usul — bitta fayl bir nechta sahifani bezaydi.</>,
-  },
-};
-const Screen3b = ({ screen, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's3b', text: `Bitta savol: bu CSS kod qayerda yashaydi? Uch usul bor. Inline — to'g'ridan-to'g'ri tegning ichida. Internal — sahifadagi style tegi orasida. External — alohida css faylda, HTML unga link bilan ulanadi. Uchala usul ham bir xil natija beradi. Har birini bosib ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const [active, setActive] = useState('inline');
-  const [seen, setSeen] = useState(() => new Set(['inline']));
-  const explored = seen.size === 3;
-  const tap = (k) => { setActive(k); setSeen(prev => { const n = new Set(prev); n.add(k); return n; }); };
-  const w = CSS_WAYS[active];
-  return (
-    <Stage eyebrow="CSS qayerda yashaydi" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!explored} label={explored ? "Davom etish" : `${seen.size}/3 usul ko'rilgan`} onClick={onNext} /></>}>
-      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up"> CSS kodi <span className="italic" style={{ color: T.accent }}>qayerga</span> yoziladi?</h2></div>
-        <Mentor>CSS'ni HTML'ga ulashning <b style={{ color: T.ink }}>3 usuli</b> bor: <b style={{ color: T.ink }}>inline</b> (teg ichida), <b style={{ color: T.ink }}>internal</b> (sahifada), <b style={{ color: T.ink }}>external</b> (alohida fayl). Har birini bosib ko'ring.</Mentor>
-        <div className="split">
-          <div className="col">
-            <div className="csslegend fade-up delay-2">
-              {['inline', 'internal', 'external'].map(k => (
-                <span key={k} className={`csstab ${seen.has(k) ? 'seen' : ''} ${active === k ? 'on' : ''}`} onClick={() => tap(k)}>{seen.has(k) ? '✓' : '•'} {CSS_WAYS[k].label}</span>
-              ))}
-            </div>
-            <pre className="code-box fade-step" key={active} style={{ fontSize: 'clamp(13px,2vw,16px)', lineHeight: 1.7 }}>{w.code}</pre>
-            <div className="sk-info fade-step" key={active + '-r'}><span className="sk-tagbig"><span className="sk-wordbadge">{w.label}</span> <span className="mono small" style={{ color: T.ink3 }}>{w.where}</span></span><p className="body" style={{ color: T.ink, margin: '11px 0 0' }}>{w.role}</p></div>
-          </div>
-          <div className="col">
-            <div className="flow-label">natija (uchalasi bir xil)</div>
-            <Preview title="natija.html" minH={130}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100 }}>
-              <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(26px,4.5vw,36px)', color: 'red', margin: 0 }}>Salom! 👋</h1>
-            </div></Preview>
-            {explored
-              ? (<div className="frame-success fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>✓ Uchala usul ham <b>bir xil</b> natija beradi. Eng ko'p ishlatiladigani — <b>external</b> (alohida <span className="mono">.css</span> fayl): toza va qayta ishlatiladi.</p></div>)
-              : (<div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Eslatma:</b> kod qayerda yozilishidan qat'i nazar, CSS qoidasi shakli bir xil — <span className="mono">selektor {'{'} xususiyat: qiymat; {'}'}</span>.</p></div>)}
-          </div>
-        </div>
-      </div>
-    </Stage>
-  );
-};
-
-// ===== SCREEN 4 — TEST (sintaksis) =====
+// ===== SCREEN 4 — TEST (display: flex) =====
 const Screen4 = (props) => (
   <QuestionScreen {...props} scope="module-mikro" eyebrow="Mashq · 1-savol"
-    audioText="CSS qoidasida color ikki nuqta red — bu yerda color nima deb ataladi?"
-    questionText="h1 { color: red; } — bu yerda 'color' nima deb ataladi?"
-    question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}><span className="mono">h1 {'{'} color: red; {'}'}</span> — bu yerda <span className="italic" style={{ color: T.accent }}>color</span> nima deb ataladi?</h2></>}
-    options={['Selektor', 'Qiymat', 'Teg', 'Xususiyat (property)']} correctIdx={3}
-    explainCorrect="To'g'ri! `color` — bu xususiyat (property): nimani o'zgartirishni aytadi. Bu yerda — matn rangini."
-    explainWrong={{ 0: 'Selektor — bu h1 (qaysi element). `color` esa xususiyat.', 1: 'Qiymat — bu red (qanday). `color` esa xususiyat.', 2: 'Teg — bu HTML tushunchasi. CSS\'da `color` — xususiyat.', default: '`color` — bu xususiyat (property).' }} />
+    audioText="Konteyner ichidagi elementlarni yonma-yon qatorga tizish uchun unga qaysi xususiyat beriladi?"
+    questionText="Elementlarni yonma-yon qatorga tizish uchun konteynerga qaysi xususiyat beriladi?"
+    question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Elementlarni <span className="italic" style={{ color: T.accent }}>yonma-yon</span> qatorga tizish uchun konteynerga qaysi xususiyat beriladi?</h2></>}
+    options={['color: red', 'font-size: 20px', 'display: flex', 'text-align: center']} correctIdx={2}
+    explainCorrect="To'g'ri! display: flex konteynerni flex'ga aylantiradi va ichki elementlarini qatorga tizadi."
+    explainWrong={{ 0: 'color — matn rangi, joylashuvga aloqasi yo\'q. Qator uchun — display: flex.', 1: 'font-size — shrift o\'lchami. Qator uchun — display: flex.', 3: 'text-align matn ichidagi joylashuv. Elementlarni qatorga tizadigan — display: flex.', default: 'Qatorga tizadigan — display: flex.' }} />
 );
 
-// ===== SCREEN 5 — RANGLAR =====
+// ===== SCREEN 5 — FLEX-DIRECTION =====
 const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's5', text: `Eng yoqimli qism — ranglar. Ikki xususiyat bor: color matn rangini, background-color esa fon rangini o'zgartiradi. Pastdagi ranglardan tanlab, kartani bo'yang.`, trigger: 'on_mount', waits_for: null }]);
-  const TEXTC = [{ n: 'Qora', v: '#0E0E10' }, { n: 'Oq', v: '#FFFFFF' }, { n: 'Qizil', v: '#E03131' }, { n: 'Ko\'k', v: '#1971C2' }];
-  const BGC = [{ n: 'Oq', v: '#FFFFFF' }, { n: 'Sariq', v: '#FFE066' }, { n: 'Pushti', v: '#FF8787' }, { n: 'Ko\'k', v: '#4DABF7' }];
-  const [tc, setTc] = useState(storedAnswer?.tc || '#0E0E10');
-  const [bg, setBg] = useState(storedAnswer?.bg || '#FFFFFF');
+  const audio = useAudio([{ id: 's5', text: `Flex elementlar qaysi yo'nalishda turishini siz boshqarasiz. flex-direction row — qator, yonma-yon, bu sukut holat. column — ustun, ustma-ust. Ikkalasini almashtirib ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const [dir, setDir] = useState(storedAnswer?.dir || 'row');
   const [touched, setTouched] = useState(!!storedAnswer);
   const done = touched;
-  const set = (kind, v) => { if (kind === 'tc') setTc(v); else setBg(v); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, tc, bg }); };
+  const isNarrow = useIsMobile(768);
+  const set = (d) => { setDir(d); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, dir: d }); };
   return (
-    <Stage eyebrow="Ranglar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Rang tanlang"} onClick={onNext} /></>}>
+    <Stage eyebrow="flex-direction" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Yo'nalishni almashtiring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">Matn va fonni qanday <span className="italic" style={{ color: T.accent }}>bo'yaymiz</span>?</h2></div>
-        <Mentor>Ikki xususiyat: <span className="mono">color</span> — matn rangi, <span className="mono">background-color</span> — fon rangi. Pastdagi ranglardan tanlab, kartani bo'yang.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">Qatorga yoki <span className="italic" style={{ color: T.accent }}>ustunga</span>?</h2></div>
+        <Mentor><span className="mono">flex-direction</span> yo'nalishni boshqaradi: <b style={{ color: T.ink }}>row</b> — qator (yonma-yon, odatdagi holat), <b style={{ color: T.ink }}>column</b> — ustun (ustma-ust). Almashtiring.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
-            <div className="fade-up delay-2"><p className="flow-label" style={{ marginBottom: 6 }}>color — matn rangi</p><div className="swatches">{TEXTC.map(c => (<button key={c.v} className={`swatch ${tc === c.v ? 'on' : ''}`} onClick={() => set('tc', c.v)} style={{ background: c.v }} title={c.n}>{tc === c.v && <span style={{ color: c.v === '#FFFFFF' ? '#000' : '#fff' }}>✓</span>}</button>))}</div></div>
-            <div className="fade-up delay-2"><p className="flow-label" style={{ marginBottom: 6 }}>background-color — fon rangi</p><div className="swatches">{BGC.map(c => (<button key={c.v} className={`swatch ${bg === c.v ? 'on' : ''}`} onClick={() => set('bg', c.v)} style={{ background: c.v }} title={c.n}>{bg === c.v && <span style={{ color: '#000' }}>✓</span>}</button>))}</div></div>
-            <pre className="code-box fade-up delay-3" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>.karta</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>color</span>: <span style={{ color: CODE.str }}>{tc}</span>;{'\n  '}<span style={{ color: CODE.attr }}>background-color</span>: <span style={{ color: CODE.str }}>{bg}</span>;{'\n'}{'}'}</pre>
+            <div className="fade-up delay-2" style={{ display: 'flex', gap: 8 }}><button className={`chip ${dir === 'row' ? 'chip-on' : ''} ${!touched ? 'btn-pulse' : ''}`} onClick={() => set('row')}>→ row</button><button className={`chip ${dir === 'column' ? 'chip-on' : ''} ${!touched ? 'btn-pulse' : ''}`} onClick={() => set('column')}>↓ column</button></div>
+            {!isNarrow && <pre className="code-box fade-up delay-2" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>.row</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>display</span>: <span style={{ color: CODE.str }}>flex</span>;{'\n  '}<span style={{ color: CODE.attr }}>flex-direction</span>: <span style={{ color: CODE.str }}>{dir}</span>;{'\n'}{'}'}</pre>}
           </div>
           <div className="col">
-            <div className="flow-label">Natija</div>
-            <Preview title="karta.html" minH={150}><div style={{ background: bg, color: tc, borderRadius: 12, padding: 20, textAlign: 'center', transition: 'all 0.3s', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.06)' }}><h1 style={{ fontFamily: 'Georgia, serif', fontSize: 24, margin: '0 0 6px', color: tc }}>Salom! 👋</h1><p style={{ fontFamily: 'Georgia, serif', fontSize: 15, margin: 0, color: tc, opacity: 0.85 }}>Bu mening kartam.</p></div></Preview>
+            <div className="flow-label">Natija <span className={`dir-badge ${dir}`}>{dir === 'row' ? '→ qator' : '↓ ustun'}</span></div>
+            <Preview title="direction.html" minH={150}><FBOX flex dir={dir} gap={10} snap /></Preview>
           </div>
         </div>
         </Zoomable>
@@ -2203,78 +2189,40 @@ const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
-// ===== SCREEN 5b — TEST (ranglar) =====
+// ===== SCREEN 5b — TEST (flex-direction) =====
 const Screen5b = (props) => (
   <QuestionScreen {...props} scope="module-mikro" eyebrow="Tekshiruv"
-    audioText="Matnning rangini qaysi xususiyat o'zgartiradi?"
-    questionText="Matnning rangini qaysi xususiyat o'zgartiradi?"
-    question={<><p className="eyebrow" style={{ color: T.accent }}>Mustahkamlash</p><h2 className="title h-sub" style={{ marginTop: 8 }}><span className="italic" style={{ color: T.accent }}>Matnning</span> rangini qaysi xususiyat o'zgartiradi?</h2></>}
-    options={['`background-color`', '`color`', '`font-size`', '`margin`']} correctIdx={1}
-    explainCorrect="To'g'ri! `color` — matnning (harflarning) rangini o'zgartiradi."
-    explainWrong={{ 0: '`background-color` — bu fon rangi, matn emas. Matn uchun — `color`.', 2: '`font-size` — shrift o\'lchami. Rang uchun — `color`.', 3: '`margin` — tashqi bo\'shliq. Rang uchun — `color`.', default: 'Matn rangi — `color` xususiyati.' }} />
+    audioText="Flex elementlarni vertikal ustunga, ya'ni ustma-ust tizish uchun qaysi qiymat kerak?"
+    questionText="Flex elementlarni vertikal ustunga tizish uchun?"
+    question={<><p className="eyebrow" style={{ color: T.accent }}>Mustahkamlash</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Flex elementlarni <span className="italic" style={{ color: T.accent }}>vertikal ustunga</span> tizish uchun nima yoziladi?</h2></>}
+    options={['flex-direction: row', 'display: block', 'justify-content: center', 'flex-direction: column']} correctIdx={3}
+    explainCorrect="To'g'ri! flex-direction: column elementlarni ustma-ust (ustunga) tizadi."
+    explainWrong={{ 0: 'row — bu qator (yonma-yon), sukut holat. Ustun uchun — column.', 1: 'display: block flexni o\'chiradi. Ustun uchun — flex-direction: column.', 2: 'justify-content joylashtiradi, yo\'nalishni emas. Ustun uchun — column.', default: 'Vertikal ustun — flex-direction: column.' }} />
 );
-// ===== SCREEN 6 — RANG FORMATLARI (nom / hex) =====
+// ===== SCREEN 6 — GAP =====
 const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's6', text: `Rangni ikki xil yozish mumkin: nom bilan, masalan red, yoki maxsus hex kod bilan, masalan panjara FF4F28. Nomlar oson, lekin kam. Hex kod esa millionlab rangni aniq beradi. Ranglardan birini bosib, ikkala yozuvini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const COLORS = [{ n: 'red', hex: '#E03131' }, { n: 'orange', hex: '#FF4F28' }, { n: 'gold', hex: '#F59F00' }, { n: 'green', hex: '#2F9E44' }, { n: 'teal', hex: '#0CA678' }, { n: 'blue', hex: '#1971C2' }, { n: 'purple', hex: '#7048E8' }, { n: 'pink', hex: '#E64980' }];
-  const [sel, setSel] = useState(storedAnswer ? (storedAnswer.sel ?? 1) : null);
-  const done = sel !== null;
-  const cur = sel !== null ? COLORS[sel] : null;
-  const pick = (i) => { setSel(i); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, sel: i }); };
-  return (
-    <Stage eyebrow="Rang formatlari" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Rangni tanlang"} onClick={onNext} /></>}>
-      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">Rang nomini <span className="italic" style={{ color: T.accent }}>raqamda</span> qanday yozamiz?</h2></div>
-        <Mentor>Rangni ikki xil yozish mumkin: <b style={{ color: T.ink }}>nom</b> bilan (<span className="mono">red</span>) yoki <b style={{ color: T.ink }}>hex kod</b> (rang raqami) bilan (<span className="mono">#FF4F28</span>). Nomlar oddiy, lekin kam. Hex esa millionlab rangni aniq beradi. Rangni bosing.</Mentor>
-        <Zoomable>
-        <div className="split">
-          <div className="col">
-            <p className="eyebrow fade-up delay-2" style={{ color: T.ink2, margin: 0 }}>Rang tanlang</p>
-            <div className="swatches fade-up delay-2" style={{ flexWrap: 'wrap' }}>{COLORS.map((c, i) => (<button key={c.hex} className={`swatch ${sel === i ? 'on' : ''}`} onClick={() => pick(i)} style={{ background: c.hex }} title={c.n}>{sel === i && <span style={{ color: '#fff' }}>✓</span>}</button>))}</div>
-          </div>
-          <div className="col">
-            {done ? (
-              <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ height: 70, borderRadius: 12, background: cur.hex, boxShadow: `0 8px 20px -8px ${cur.hex}` }} />
-                <div className="hexrow"><span className="hexlbl">nom</span><span className="mono hexval">{cur.n}</span></div>
-                <div className="hexrow"><span className="hexlbl">hex kod</span><span className="mono hexval">{cur.hex}</span></div>
-                <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}>Hex <b>#</b> bilan boshlanadi va 6 ta belgidan iborat. Har juftlik — qizil, yashil, ko'k miqdori. Dizaynerlar shu kodlardan foydalanadi.</p></div>
-              </div>
-            ) : (<div className="frame-dash"><p className="small" style={{ color: T.ink3, textAlign: 'center', fontStyle: 'italic', margin: 0 }}>Rangni bosing — nom va hex kodi chiqadi</p></div>)}
-          </div>
-        </div>
-        </Zoomable>
-      </div>
-    </Stage>
-  );
-};
-
-// ===== SCREEN 7 — SHRIFTLAR =====
-const Screen7 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's7', text: `Shrift sahifaning ovozi kabi. font-family shrift turini, font-size esa o'lchamini belgilaydi. Turini va o'lchamini almashtirib, matn qanday o'zgarishini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const FONTS = [{ k: 'sans', l: 'Sans', css: 'sans-serif', ff: "'Manrope', sans-serif" }, { k: 'serif', l: 'Serif', css: 'serif', ff: 'Georgia, serif' }, { k: 'mono', l: 'Mono', css: 'monospace', ff: "'JetBrains Mono', monospace" }];
-  const SIZES = [{ l: 'Kichik', v: 16 }, { l: "O'rta", v: 24 }, { l: 'Katta', v: 34 }];
-  const [font, setFont] = useState(storedAnswer?.font || 'sans');
-  const [size, setSize] = useState(storedAnswer?.size || 24);
+  const audio = useAudio([{ id: 's6', text: `Flex elementlar bir-biriga yopishib turibdi. Ularning orasini ochish uchun gap xususiyati bor — u elementlar orasidagi bo'shliqni belgilaydi. Qiymatni o'zgartirib ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const GAPS = [{ l: "Yo'q", v: 0 }, { l: 'Kichik', v: 8 }, { l: "O'rta", v: 20 }, { l: 'Katta', v: 38 }];
+  const [gap, setGap] = useState(storedAnswer ? (storedAnswer.gap ?? 20) : 8);
   const [touched, setTouched] = useState(!!storedAnswer);
   const done = touched;
-  const cur = FONTS.find(f => f.k === font);
-  const change = (kind, v) => { if (kind === 'f') setFont(v); else setSize(v); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, font, size }); };
+  const isNarrow = useIsMobile(768);
+  const set = (v) => { setGap(v); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, gap: v }); };
   return (
-    <Stage eyebrow="Shriftlar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Shriftni o'zgartiring"} onClick={onNext} /></>}>
+    <Stage eyebrow="gap" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Bo'shliqni o'zgartiring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">Matnning <span className="italic" style={{ color: T.accent }}>turini</span> qanday tanlaymiz?</h2></div>
-        <Mentor>Shrift — sahifaning ovozi. <span className="mono">font-family</span> shrift turini, <span className="mono">font-size</span> o'lchamini belgilaydi. Turini va o'lchamini almashtiring.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">Element orasini qanday <span className="italic" style={{ color: T.accent }}>ochamiz</span>?</h2></div>
+        <Mentor><span className="mono">gap</span> — flex elementlar <b style={{ color: T.ink }}>orasidagi</b> bo'shliqni belgilaydi. margin'dan farqi: gap faqat elementlar orasiga qo'yiladi, chetga emas. Qiymatni o'zgartiring.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
-            <div className="fade-up delay-2"><p className="flow-label" style={{ marginBottom: 6 }}>font-family — turi</p><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{FONTS.map(f => (<button key={f.k} className={`chip ${font === f.k ? 'chip-on' : ''}`} onClick={() => change('f', f.k)} style={{ fontFamily: f.ff }}>{f.l}</button>))}</div></div>
-            <div className="fade-up delay-2"><p className="flow-label" style={{ marginBottom: 6 }}>font-size — o'lchami</p><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{SIZES.map(s => (<button key={s.v} className={`chip ${size === s.v ? 'chip-on' : ''}`} onClick={() => change('s', s.v)}>{s.l}</button>))}</div></div>
-            <pre className="code-box fade-up delay-3" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>h1</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>font-family</span>: <span style={{ color: CODE.str }}>{cur.css}</span>;{'\n  '}<span style={{ color: CODE.attr }}>font-size</span>: <span style={{ color: CODE.str }}>{size}px</span>;{'\n'}{'}'}</pre>
+            <div className="fade-up delay-2" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{GAPS.map(g => (<button key={g.v} className={`chip ${gap === g.v ? 'chip-on' : ''} ${!touched ? 'btn-pulse' : ''}`} onClick={() => set(g.v)}>{g.l} ({g.v}px)</button>))}</div>
+            {!isNarrow && <pre className="code-box fade-up delay-2" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>.row</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>display</span>: <span style={{ color: CODE.str }}>flex</span>;{'\n  '}<span style={{ color: CODE.attr }}>gap</span>: <span style={{ color: CODE.str }}>{gap}px</span>;{'\n'}{'}'}</pre>}
           </div>
           <div className="col">
-            <div className="flow-label">Natija</div>
-            <Preview title="matn.html" minH={150}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120 }}><h1 key={font + size} className="fade-step" style={{ fontFamily: cur.ff, fontSize: size, color: T.ink, margin: 0, textAlign: 'center', transition: 'font-size 0.2s' }}>Salom, dunyo!</h1></div></Preview>
+            <div className="flow-label">Natija (qizil — gap bo'shlig'i)</div>
+            <Preview title="gap.html" minH={150}><div className="gapviz" style={{ ['--g']: `${gap}px` }}><FBOX flex gap={gap} /></div></Preview>
+            <p className="mono small" style={{ color: T.ink3, margin: 0, textAlign: 'center' }}>gap: {gap}px — har element orasida {gap === 0 ? 'bo\'shliq yo\'q' : `${gap}px joy`}</p>
           </div>
         </div>
         </Zoomable>
@@ -2283,31 +2231,49 @@ const Screen7 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
-// ===== SCREEN 8 — QALINLIK VA TEKISLASH =====
-const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's8', text: `Yana ikki foydali xususiyat. font-weight matnni qalin qiladi — bold. text-align esa matnni joylashtiradi: chapga, markazga yoki o'ngga. Ikkalasini sinab ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const ALIGNS = [{ k: 'left', l: '⬅ Chap' }, { k: 'center', l: '⬌ Markaz' }, { k: 'right', l: 'O\'ng ➡' }];
-  const [bold, setBold] = useState(!!storedAnswer?.bold);
-  const [align, setAlign] = useState(storedAnswer?.align || 'left');
-  const [bt, setBt] = useState(!!storedAnswer);
-  const [at, setAt] = useState(!!storedAnswer);
-  const done = bt && at;
-  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, bold, align }); }, [done]);
+// ===== SCREEN 7 — JUSTIFY-CONTENT =====
+const Screen7 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 's7', text: `Endi maqsadli mashq. Yuqorida xira namuna menyu bor — logo bir chetda, Kirish tugmasi ikkinchi chetda. Sizning vazifangiz: justify-content ning to'g'ri qiymatini tanlab, pastdagi jonli menyuni aynan shu namunaga moslashtirish. Chetdan chetga tarqatuvchi qiymatni topsangiz — nishonga tegasiz.`, trigger: 'on_mount', waits_for: null }]);
+  const OPTS = [{ k: 'flex-start', l: 'flex-start' }, { k: 'center', l: 'center' }, { k: 'space-between', l: 'space-between' }, { k: 'flex-end', l: 'flex-end' }];
+  const TARGET = 'space-between'; // 🎯 namuna: menyu chetdan chetga
+  const [jc, setJc] = useState(storedAnswer?.jc || 'flex-start');
+  const [solved, setSolved] = useState(!!storedAnswer);
+  const [burst, setBurst] = useState(false); // 🎯 nishonga tegdi — bir martalik portlash (faqat yechilgan payt)
+  const done = solved;
+  const matched = jc === TARGET;
+  const isNarrow = useIsMobile(768);
+  const set = (v) => {
+    setJc(v);
+    if (v === TARGET && !solved) { setSolved(true); setBurst(true); setTimeout(() => setBurst(false), 950); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, jc: v }); }
+  };
   return (
-    <Stage eyebrow="Qalinlik · tekislash" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Ikkalasini sinang"} onClick={onNext} /></>}>
+    <Stage eyebrow="justify-content" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Namunaga moslang"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">Matnni <span className="italic" style={{ color: T.accent }}>qalin</span> va joyiga qanday qo'yamiz?</h2></div>
-        <Mentor><span className="mono">font-weight: bold</span> — matnni qalin qiladi. <span className="mono">text-align</span> — matnni joylashtiradi: chap, markaz yoki o'ng. Ikkalasini sinang.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">Menyuni <span className="italic" style={{ color: T.accent }}>namunaga</span> moslang</h2></div>
+        <Mentor>Yuqorida <b style={{ color: T.ink }}>xira namuna</b> — logo bir chetda, Kirish ikkinchi chetda. <span className="mono">justify-content</span> ning to'g'ri qiymatini tanlab, pastdagi <b style={{ color: T.ink }}>jonli menyuni</b> namunaga moslang. To'g'ri topsangiz — 🎯 nishonga tegasiz.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
-            <div className="fade-up delay-2"><p className="flow-label" style={{ marginBottom: 6 }}>font-weight</p><button className={`chip ${bold ? 'chip-on' : ''}`} onClick={() => { setBold(b => !b); setBt(true); }}><b>B</b> {bold ? 'bold ✓' : 'normal'}</button></div>
-            <div className="fade-up delay-2"><p className="flow-label" style={{ marginBottom: 6 }}>text-align</p><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{ALIGNS.map(a => (<button key={a.k} className={`chip ${align === a.k ? 'chip-on' : ''}`} onClick={() => { setAlign(a.k); setAt(true); }}>{a.l}</button>))}</div></div>
-            <pre className="code-box fade-up delay-3" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>p</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>font-weight</span>: <span style={{ color: CODE.str }}>{bold ? 'bold' : 'normal'}</span>;{'\n  '}<span style={{ color: CODE.attr }}>text-align</span>: <span style={{ color: CODE.str }}>{align}</span>;{'\n'}{'}'}</pre>
+            <div className="flow-label">justify-content qiymatini tanlang</div>
+            <div className="fade-up delay-2" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{OPTS.map(o => (<button key={o.k} className={`chip ${jc === o.k ? 'chip-on' : ''} ${!solved ? 'btn-pulse' : ''}`} onClick={() => set(o.k)}>{o.l}</button>))}</div>
+            {!isNarrow && <pre className="code-box fade-up delay-2" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>.menyu</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>display</span>: <span style={{ color: CODE.str }}>flex</span>;{'\n  '}<span style={{ color: CODE.attr }}>justify-content</span>: <span style={{ color: CODE.str }}>{jc}</span>;{'\n'}{'}'}</pre>}
           </div>
           <div className="col">
-            <div className="flow-label">Natija</div>
-            <Preview title="matn.html" minH={130}><p style={{ fontFamily: 'Georgia, serif', fontSize: 18, color: T.ink, margin: 0, fontWeight: bold ? 700 : 400, textAlign: align, transition: 'all 0.2s' }}>Men CSS o'rganyapman!</p></Preview>
+            <div className="flow-label">🎯 Namuna (shunga moslang)</div>
+            <div style={{ opacity: 0.5, filter: 'grayscale(1)', border: '1.5px dashed ' + T.ink3, borderRadius: 12, padding: 4 }}><Navbar justify={TARGET} /></div>
+            <div className="flow-label" style={{ marginTop: 8 }}>Sizning menyungiz</div>
+            <div className="bull-wrap">
+              <Preview title="menyu.html" minH={64}><Navbar justify={jc} snap /></Preview>
+              {burst && (
+                <div className="bull-fx" aria-hidden="true">
+                  <span className="bull-ring" />
+                  <span className="bull-ring d2" />
+                  {Array.from({ length: 10 }).map((_, i) => (<span key={i} className="bull-spark" style={{ '--a': `${i * 36}deg` }}>✦</span>))}
+                  <span className="bull-target">🎯</span>
+                </div>
+              )}
+            </div>
+            <div className={matched ? 'frame-success fade-step' : 'hint'}><p className="body" style={{ margin: 0, color: T.ink }}>{matched ? <>🎯 Nishonga tegdi! <span className="mono">justify-content: space-between</span> menyuni chetdan chetga tarqatdi — aynan namunadek.</> : <>Menyu hali namunaga mos emas. <span className="mono">justify-content</span> qiymatini o'zgartiring — chetlarga tarqalsin.</>}</p></div>
           </div>
         </div>
         </Zoomable>
@@ -2315,41 +2281,77 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     </Stage>
   );
 };
-// ===== SCREEN 9 — TEST (shriftlar) =====
+
+// ===== SCREEN 8 — ALIGN-ITEMS =====
+const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 's8', text: `justify-content asosiy o'q, ya'ni gorizontal edi. Endi ikkinchi yo'nalish: ko'ndalang o'q — qatorga ko'ndalang, ya'ni yuqoridan pastga. align-items elementlarni aynan shu ko'ndalang o'q bo'ylab tekislaydi: yuqoriga, markazga yoki pastga. Balandligi har xil quti'larda yaxshi ko'rinadi. Strelkani kuzatib sinab ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const OPTS = [{ k: 'stretch', l: 'stretch' }, { k: 'flex-start', l: 'flex-start' }, { k: 'center', l: 'center' }, { k: 'flex-end', l: 'flex-end' }];
+  const [ai, setAi] = useState(storedAnswer?.ai || 'center');
+  const [touched, setTouched] = useState(!!storedAnswer);
+  const done = touched;
+  const isNarrow = useIsMobile(768);
+  const set = (v) => { setAi(v); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, ai: v }); };
+  return (
+    <Stage eyebrow="align-items" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Variantni sinang"} onClick={onNext} /></>}>
+      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
+        <div className="head"><h2 className="title h-title fade-up">Elementlarni <span className="italic" style={{ color: T.accent }}>ko'ndalang o'q</span> bo'ylab tekislash</h2></div>
+        <Mentor>Ikkinchi yo'nalish: <b style={{ color: T.ink }}>ko'ndalang o'q</b> — qatorga ko'ndalang (yuqoridan pastga). <span className="mono">align-items</span> aynan shu o'q bo'ylab tekislaydi: <span className="mono">flex-start</span> yuqoriga, <span className="mono">center</span> markazga, <span className="mono">flex-end</span> pastga. Ko'rsatkichni kuzating.</Mentor>
+        <Zoomable>
+        <div className="split">
+          <div className="col">
+            <div className="fade-up delay-2" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{OPTS.map(o => (<button key={o.k} className={`chip ${ai === o.k ? 'chip-on' : ''} ${!touched ? 'btn-pulse' : ''}`} onClick={() => set(o.k)}>{o.l}</button>))}</div>
+            {!isNarrow && <pre className="code-box fade-up delay-2" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>.row</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>display</span>: <span style={{ color: CODE.str }}>flex</span>;{'\n  '}<span style={{ color: CODE.attr }}>align-items</span>: <span style={{ color: CODE.str }}>{ai}</span>;{'\n'}{'}'}</pre>}
+          </div>
+          <div className="col">
+            <div className="flow-label">Natija (balandligi har xil)</div>
+            <Preview title="align.html" minH={150}><AxisDemo align={ai} gap={10} varied axis="cross" /></Preview>
+          </div>
+        </div>
+        </Zoomable>
+      </div>
+    </Stage>
+  );
+};
+// ===== SCREEN 9 — TEST (justify/align) =====
 const Screen9 = (props) => (
   <QuestionScreen {...props} scope="module-mikro" eyebrow="Mashq · 2-savol"
-    audioText="Shriftning o'lchamini qaysi xususiyat belgilaydi?"
-    questionText="Shriftning o'lchamini (kattaligini) qaysi xususiyat belgilaydi?"
-    question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Shriftning <span className="italic" style={{ color: T.accent }}>o'lchamini</span> qaysi xususiyat belgilaydi?</h2></>}
-    options={['`color`', '`font-family`', '`font-size`', '`padding`']} correctIdx={2}
-    explainCorrect="To'g'ri! `font-size` — shriftning o'lchamini (masalan 24px) belgilaydi."
-    explainWrong={{ 0: '`color` — matn rangi, o\'lcham emas. O\'lcham — `font-size`.', 1: '`font-family` — shrift turi (Sans, Serif). O\'lcham — `font-size`.', 3: '`padding` — ichki bo\'shliq. Shrift o\'lchami — `font-size`.', default: 'Shrift o\'lchami — `font-size` xususiyati.' }} />
+    audioText="Flex elementlarni qator bo'ylab gorizontal markazga joylashtirish uchun qaysi xususiyat?"
+    questionText="Flex elementlarni gorizontal markazga joylashtirish uchun?"
+    question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Flex elementlarni qator bo'ylab <span className="italic" style={{ color: T.accent }}>gorizontal markazga</span> joylashtirish uchun?</h2></>}
+    options={['align-items: center', 'justify-content: center', 'text-align: center', 'margin: center']} correctIdx={1}
+    explainCorrect="To'g'ri! justify-content: center flex elementlarni asosiy o'q (gorizontal) bo'ylab markazga to'playdi."
+    explainWrong={{ 0: 'align-items vertikal tekislaydi, gorizontal emas. Gorizontal markaz — justify-content.', 2: 'text-align matn ichida ishlaydi, flex elementlarga emas.', 3: 'margin: center degan qiymat yo\'q. To\'g\'risi — justify-content: center.', default: 'Gorizontal markaz — justify-content: center.' }} />
 );
 
-// ===== SCREEN 10 — PADDING (ichki bo'shliq) =====
+// ===== SCREEN 10 — DEVTOOLS (Styles paneli) =====
 const Screen10 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's10', text: `Bo'shliq ham dizaynning bir qismi. padding — ichki bo'shliq: kontent bilan elementning cheti orasidagi joy. Xuddi ramka ichidagi hoshiya kabi — surat chetga yopishib turmaydi. Qiymatni o'zgartirib, ichki bo'shliq qanday kengayishini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const PADS = [{ l: "Yo'q", v: 0 }, { l: 'Kichik', v: 12 }, { l: "O'rta", v: 26 }, { l: 'Katta', v: 42 }];
-  const [pad, setPad] = useState(storedAnswer ? (storedAnswer.pad ?? 26) : 12);
-  const [touched, setTouched] = useState(!!storedAnswer);
-  const done = touched;
-  const set = (v) => { setPad(v); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, pad: v }); };
+  const audio = useAudio([{ id: 's10', text: `1-darsda DevTools'da HTML'ni ko'rdik. Endi CSS'ni ko'ramiz. Istalgan elementni Inspect qilsangiz, o'ngdagi Styles panelida uning barcha CSS qoidalari chiqadi. Tugmani bosib, menyuning CSS'ini oching.`, trigger: 'on_mount', waits_for: null }]);
+  const [opened, setOpened] = useState(!!storedAnswer);
+  const done = opened;
+  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   return (
-    <Stage eyebrow="padding" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Bo'shliqni o'zgartiring"} onClick={onNext} /></>}>
+    <Stage eyebrow="DevTools · CSS" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Styles'ni oching"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">Kontent ichida <span className="italic" style={{ color: T.accent }}>bo'shliq</span> qanday beriladi?</h2></div>
-        <Mentor><span className="mono">padding</span> — <b style={{ color: T.ink }}>ichki bo'shliq</b>: kontent bilan elementning cheti orasidagi joy. Xuddi rasm bilan ramka orasidagi bo'shliq kabi. Qiymatni o'zgartiring.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">Element CSS'ini qayerda <span className="italic" style={{ color: T.accent }}>ko'ramiz</span>?</h2></div>
+        <Mentor>DevTools'da elementni <b style={{ color: T.ink }}>Inspect</b> qilsangiz, o'ngdagi <b style={{ color: T.ink }}>Styles</b> panelida uning barcha CSS qoidalari chiqadi. Tugmani bosing.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
-            <p className="eyebrow fade-up delay-2" style={{ color: T.ink2, margin: 0 }}>padding qiymati</p>
-            <div className="fade-up delay-2" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{PADS.map(p => (<button key={p.v} className={`chip ${pad === p.v ? 'chip-on' : ''}`} onClick={() => set(p.v)}>{p.l} ({p.v}px)</button>))}</div>
-            <pre className="code-box fade-up delay-3" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>.karta</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>padding</span>: <span style={{ color: CODE.str }}>{pad}px</span>;{'\n'}{'}'}</pre>
+            <div className="bp-window fade-up delay-2"><div className="bp-bar"><span className="bb-dots"><i /><i /><i /></span><span className="bp-title">coddy.uz</span></div><div className="bp-body"><div className={opened ? 'inspect-hl' : ''}><Navbar flex justify="space-between" /></div></div></div>
+            {!opened && <button className="btn btn-pulse" style={{ alignSelf: 'flex-start' }} onClick={() => setOpened(true)}>🔍 Menyuni Inspect qilish</button>}
+            {opened && <p className="mono small" style={{ color: T.accent, margin: 0 }}>↑ tanlangan element belgilandi</p>}
           </div>
           <div className="col">
-            <div className="flow-label">Natija (sariq — ichki bo'shliq)</div>
-            <Preview title="padding.html" minH={150}><div style={{ display: 'flex', justifyContent: 'center' }}><div style={{ background: '#FFE066', borderRadius: 12, padding: pad, transition: 'padding 0.25s' }}><div style={{ background: '#fff', borderRadius: 8, padding: '14px 18px', textAlign: 'center', boxShadow: `0 4px 12px -6px rgba(${T.shadowBase},0.2)`, fontFamily: "'Manrope', sans-serif", fontWeight: 600, color: T.ink }}>Kontent</div></div></div></Preview>
-            <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}>Sariq zona — <b>padding</b>. Qancha katta bo'lsa, kontent chetdan shuncha uzoq turadi.</p></div>
+            {opened ? (
+              <div className="fade-step">
+                <div className="flow-label" style={{ marginBottom: 6 }}>DevTools — Styles</div>
+                <div className="cssdev">
+                  <div className="cssdev-bar"><span className="cssdev-tab">Styles</span><span>Computed</span><span>Layout</span></div>
+                  <div className="cssdev-body"><span className="cssdev-sel">.menyu</span> {'{'}<br />{'  '}<span className="cssdev-prop">display</span>: <span className="cssdev-val">flex</span>;<br />{'  '}<span className="cssdev-prop">justify-content</span>: <span className="cssdev-val">space-between</span>;<br />{'  '}<span className="cssdev-prop">gap</span>: <span className="cssdev-val">8px</span>;<br />{'}'}</div>
+                </div>
+                <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}>Mana menyuning butun CSS'i! Styles paneli har bir elementning qoidalarini ko'rsatadi — saytlar qanday yasalganini shu yerdan o'rganasiz.</p></div>
+              </div>
+            ) : (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Hozir faqat menyu ko'rinyapti. <b style={{ color: T.ink }}>Inspect</b> bossangiz, uning CSS qoidalari ochiladi.</p></div>)}
           </div>
         </div>
         </Zoomable>
@@ -2358,39 +2360,33 @@ const Screen10 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
-// ===== SCREEN 11 — MARGIN (tashqi bo'shliq) =====
+// ===== SCREEN 11 — DEVTOOLS (jonli tahrir) =====
 const Screen11 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's11', text: `padding ichki bo'shliq edi. margin esa tashqi bo'shliq — element bilan qo'shnilari orasidagi masofa. Xuddi odamlar orasidagi shaxsiy joy kabi. Qiymatni o'zgartirib, ikki karta orasi qanday ochilishini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const MARGS = [{ l: "Yo'q", v: 0 }, { l: 'Kichik', v: 10 }, { l: "O'rta", v: 24 }, { l: 'Katta', v: 44 }];
-  const [mar, setMar] = useState(storedAnswer ? (storedAnswer.mar ?? 24) : 10);
+  const audio = useAudio([{ id: 's11', text: `Eng zo'r tomoni — Styles panelida qiymatni o'zgartirsangiz, sahifa darhol yangilanadi. justify-content qiymatini almashtirib, menyu qanday siljishini ko'ring. Esda tuting: bu o'zgarish vaqtincha, faqat sizning ekraningizda.`, trigger: 'on_mount', waits_for: null }]);
+  const VALS = ['flex-start', 'center', 'space-between'];
+  const [jc, setJc] = useState(storedAnswer?.jc || 'flex-start');
   const [touched, setTouched] = useState(!!storedAnswer);
   const done = touched;
-  const set = (v) => { setMar(v); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, mar: v }); };
-  const box = { background: '#fff', borderRadius: 10, padding: '14px 16px', textAlign: 'center', fontFamily: "'Manrope', sans-serif", fontWeight: 600, color: T.ink, boxShadow: `0 4px 12px -6px rgba(${T.shadowBase},0.2)` };
+  const set = (v) => { setJc(v); setTouched(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, jc: v }); };
   return (
-    <Stage eyebrow="margin" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Masofani o'zgartiring"} onClick={onNext} /></>}>
+    <Stage eyebrow="DevTools · tahrir" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Qiymatni o'zgartiring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">Elementlar <span className="italic" style={{ color: T.accent }}>orasidagi</span> masofa-chi?</h2></div>
-        <Mentor><span className="mono">margin</span> — <b style={{ color: T.ink }}>tashqi bo'shliq</b>: element bilan qo'shnilari orasidagi masofa. Xuddi odamlar orasidagi shaxsiy joy kabi. Qiymatni o'zgartiring.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">CSS'ni DevTools'da <span className="italic" style={{ color: T.accent }}>jonli</span> o'zgartiring</h2></div>
+        <Mentor>Styles panelida qiymatni o'zgartirsangiz, sahifa <b style={{ color: T.ink }}>darhol</b> yangilanadi. <span className="mono">justify-content</span> ni almashtiring. Esda tuting: bu <b style={{ color: T.ink }}>vaqtincha</b>, faqat sizning ekraningizda.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
-            <p className="eyebrow fade-up delay-2" style={{ color: T.ink2, margin: 0 }}>margin qiymati</p>
-            <div className="fade-up delay-2" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{MARGS.map(m => (<button key={m.v} className={`chip ${mar === m.v ? 'chip-on' : ''}`} onClick={() => set(m.v)}>{m.l} ({m.v}px)</button>))}</div>
-            <pre className="code-box fade-up delay-3" style={{ fontSize: 'clamp(12px,1.7vw,14px)' }}><span style={{ color: CODE.tag }}>.karta</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>margin-bottom</span>: <span style={{ color: CODE.str }}>{mar}px</span>;{'\n'}{'}'}</pre>
+            <div className="flow-label">DevTools — Styles (bosib o'zgartiring)</div>
+            <div className="cssdev fade-up delay-2">
+              <div className="cssdev-bar"><span className="cssdev-tab">Styles</span></div>
+              <div className="cssdev-body"><span className="cssdev-sel">.menyu</span> {'{'}<br />{'  '}<span className="cssdev-prop">display</span>: <span className="cssdev-val">flex</span>;<br />{'  '}<span className="cssdev-prop">justify-content</span>: <span className="cssdev-edit">{jc}</span>;<br />{'}'}</div>
+              <div className="cssdev-opts">{VALS.map(v => (<button key={v} className={`cssdev-chip ${jc === v ? 'on' : ''} ${!touched ? 'btn-pulse' : ''}`} onClick={() => set(v)}>{v}</button>))}</div>
+            </div>
           </div>
           <div className="col">
-            <div className="flow-label">Natija (ko'k — tashqi bo'shliq)</div>
-            <Preview title="margin.html" minH={150}>
-              <div style={{ background: '#D0EBFF', borderRadius: 12, padding: 12 }}>
-                <div style={box}>Karta 1</div>
-                <div style={{ height: mar, transition: 'height 0.34s cubic-bezier(.34,1.25,.5,1)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {mar > 0 && <span className="margin-tag" style={{ opacity: mar >= 22 ? 1 : 0 }}>↕ margin {mar}px</span>}
-                </div>
-                <div style={box}>Karta 2</div>
-              </div>
-            </Preview>
-            <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}>Ko'k zona — <b>margin</b>: kartalar orasini ochadi. <b>padding</b> ichkarida, <b>margin</b> tashqarida.</p></div>
+            <div className="flow-label">Sahifa (jonli)</div>
+            <Preview title="coddy.uz" minH={120}><Navbar flex justify={jc} /></Preview>
+            {done && <div className="frame-warn fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>⚠️ Bu o'zgarish <b>vaqtincha</b> — faqat sizning ekraningizda. Sahifani yangilasangiz, asl holiga qaytadi. Shuning uchun bemalol tajriba qiling!</p></div>}
           </div>
         </div>
         </Zoomable>
@@ -2398,60 +2394,51 @@ const Screen11 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     </Stage>
   );
 };
-// ===== SCREEN 12 — TEST (padding/margin) =====
+// ===== SCREEN 12 — TEST (DevTools CSS) =====
 const Screen12 = (props) => (
   <QuestionScreen {...props} scope="module-mikro" eyebrow="Mashq · 3-savol"
-    audioText="Element ichidagi bo'shliq, ya'ni kontent bilan chet orasidagi joy, qaysi xususiyat?"
-    questionText="Kontent bilan elementning cheti orasidagi ichki bo'shliq qaysi xususiyat?"
-    question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Kontent bilan elementning cheti orasidagi <span className="italic" style={{ color: T.accent }}>ichki</span> bo'shliq qaysi xususiyat?</h2></>}
-    options={['`margin`', '`color`', '`font-size`', '`padding`']} correctIdx={3}
-    explainCorrect="To'g'ri! `padding` — ichki bo'shliq (kontent bilan chet orasida)."
-    explainWrong={{ 0: '`margin` — tashqi bo\'shliq (elementlar orasida). Ichki — `padding`.', 1: '`color` — matn rangi, bo\'shliq emas.', 2: '`font-size` — shrift o\'lchami. Ichki bo\'shliq — `padding`.', default: 'Ichki bo\'shliq — `padding`.' }} />
+    audioText="DevTools'ning qaysi paneli elementning CSS qoidalarini ko'rsatadi va o'zgartirishga imkon beradi?"
+    questionText="DevTools'ning qaysi paneli element CSS'ini ko'rsatadi?"
+    question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>DevTools'ning qaysi paneli elementning <span className="italic" style={{ color: T.accent }}>CSS qoidalarini</span> ko'rsatadi va o'zgartiradi?</h2></>}
+    options={['Console', 'Network', 'Styles', 'Sources']} correctIdx={2}
+    explainCorrect="To'g'ri! Styles paneli tanlangan elementning barcha CSS qoidalarini ko'rsatadi va jonli o'zgartirishga imkon beradi."
+    explainWrong={{ 0: 'Console — xato va xabarlar uchun. CSS uchun — Styles.', 1: 'Network — fayllar yuklanishi uchun. CSS uchun — Styles.', 3: 'Sources — fayllar kodi uchun. Element CSS\'i uchun — Styles.', default: 'Element CSS\'i — Styles panelida.' }} />
 );
 
-// ===== SCREEN 13 — BUILDER (kartani bezat) =====
+// ===== SCREEN 13 — BUILDER (flex layout) =====
 const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's13', text: `Vaqti keldi — o'zingiz karta bezaysiz. Quyidagi xususiyatlarni yoqib, kartani jonlantiring. Kamida 3 ta xususiyat qo'shing — kod o'zi yoziladi.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's13', text: `Vaqti keldi — o'zingiz layout yig'asiz. Quyidagi xususiyatlarni yoqib, quti'larni xohlagancha joylashtiring. Kamida 3 ta xususiyat qo'shing — CSS kodi o'zi yoziladi. display flex'siz boshqalari ishlamasligiga e'tibor bering!`, trigger: 'on_mount', waits_for: null }]);
   const PROPS = [
-    { k: 'color', label: '🎨 Matn rangi', css: 'color', val: '#E03131' },
-    { k: 'background', label: '🟨 Fon rangi', css: 'background-color', val: '#FFF3BF' },
-    { k: 'font', label: '🔤 Serif shrift', css: 'font-family', val: 'Georgia, serif' },
-    { k: 'size', label: '🔠 Katta shrift', css: 'font-size', val: '26px' },
-    { k: 'padding', label: '↔ Ichki bo\'shliq', css: 'padding', val: '26px' },
-    { k: 'radius', label: '⬭ Yumaloq chet', css: 'border-radius', val: '16px' }
+    { k: 'flex', label: '🎯 display: flex' },
+    { k: 'center', label: '⊞ justify: center' },
+    { k: 'gap', label: '↔ gap: 16px' },
+    { k: 'column', label: '↓ direction: column' },
+    { k: 'align', label: '⊡ align: center' }
   ];
   const [ap, setAp] = useState(storedAnswer?.ap || {});
   const count = Object.values(ap).filter(Boolean).length;
   const done = count >= 3;
-  const toggle = (k) => setAp(p => ({ ...p, [k]: !p[k] }));
   const P = (k) => !!ap[k];
+  const isNarrow = useIsMobile(768);
+  const toggle = (k) => setAp(p => ({ ...p, [k]: !p[k] }));
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, ap }); }, [done]);
-  const cardStyle = {
-    color: P('color') ? '#E03131' : T.ink,
-    background: P('background') ? '#FFF3BF' : '#fff',
-    fontFamily: P('font') ? 'Georgia, serif' : "'Manrope', sans-serif",
-    fontSize: P('size') ? 26 : 18,
-    padding: P('padding') ? 26 : 14,
-    borderRadius: P('radius') ? 16 : 4,
-    textAlign: 'center', fontWeight: 600, transition: 'all 0.25s', boxShadow: `0 8px 22px -10px rgba(${T.shadowBase},0.2)`
-  };
   return (
-    <Stage eyebrow="Amaliyot · kartani bezat" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : `Kamida 3 ta xususiyat (${count}/3)`} onClick={onNext} /></>}>
+    <Stage eyebrow="Amaliyot · layout yig'" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : `Kamida 3 ta xususiyat (${count}/3)`} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(8px,1.4vw,14px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">O'zingiz <span className="italic" style={{ color: T.accent }}>karta bezang</span>.</h2></div>
-        <Mentor>Quyidagi xususiyatlarni yoqib, kartani jonlantiring. <b style={{ color: T.ink }}>Kamida 3 ta</b> xususiyat qo'shing — CSS kodi o'zi yoziladi.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">O'zingiz <span className="italic" style={{ color: T.accent }}>layout yig'ing</span>.</h2></div>
+        <Mentor>Xususiyatlarni yoqib, qutilarni joylashtiring. <b style={{ color: T.ink }}>Kamida 3 ta</b> qo'shing. <span className="mono">display: flex</span> bo'lmasa, qolganlari ishlamasligiga e'tibor bering!</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
             <p className="flow-label">Xususiyatlarni yoqing</p>
-            <div className="chips fade-up delay-2">{PROPS.map(pr => (<button key={pr.k} className={`gchip ${P(pr.k) ? 'gchip-on' : ''}`} onClick={() => toggle(pr.k)}>{P(pr.k) ? '✓ ' : ''}{pr.label}</button>))}</div>
-            {done && <div style={{ background: T.successSoft, borderLeft: `4px solid ${T.success}`, borderRadius: 12, padding: '12px 15px' }} className="fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>Zo'r! Bir nechta xususiyat bilan kartani butunlay o'zgartirdingiz — bu CSS kuchi!</p></div>}
+            <div className="chips fade-up delay-2">{PROPS.map(pr => (<button key={pr.k} className={`gchip ${P(pr.k) ? 'gchip-on' : ''} ${count === 0 ? 'btn-pulse' : ''}`} onClick={() => toggle(pr.k)}>{P(pr.k) ? '✓ ' : ''}{pr.label}</button>))}</div>
+            {!isNarrow && <><div className="flow-label" style={{ marginTop: 4 }}>CSS kodi</div>
+            <pre className="code-box" style={{ fontSize: 'clamp(11.5px,1.6vw,13px)' }}><span style={{ color: CODE.tag }}>.row</span> {'{'}{'\n  '}<span style={{ color: CODE.attr }}>display</span>: <span style={{ color: P('flex') ? CODE.str : CODE.comment }}>{P('flex') ? 'flex' : 'block'}</span>;{'\n'}{P('column') && <>{'  '}<span style={{ color: CODE.attr }}>flex-direction</span>: <span style={{ color: CODE.str }}>column</span>;{'\n'}</>}{P('center') && <>{'  '}<span style={{ color: CODE.attr }}>justify-content</span>: <span style={{ color: CODE.str }}>center</span>;{'\n'}</>}{P('align') && <>{'  '}<span style={{ color: CODE.attr }}>align-items</span>: <span style={{ color: CODE.str }}>center</span>;{'\n'}</>}{P('gap') && <>{'  '}<span style={{ color: CODE.attr }}>gap</span>: <span style={{ color: CODE.str }}>16px</span>;{'\n'}</>}{'}'}</pre></>}
           </div>
           <div className="col">
-            <div className="flow-label">Karta</div>
-            <Preview title="karta.html" minH={120}><div style={{ display: 'flex', justifyContent: 'center' }}><div style={cardStyle}>Mening kartam ✨</div></div></Preview>
-            <div className="flow-label">CSS kodi</div>
-            <pre className="code-box" style={{ fontSize: 'clamp(11.5px,1.6vw,13px)' }}><span style={{ color: CODE.tag }}>.karta</span> {'{'}{'\n'}{count === 0 && <><span style={{ color: CODE.comment }}>{'  /* xususiyat yoqing */'}</span>{'\n'}</>}{PROPS.filter(pr => P(pr.k)).map(pr => (<React.Fragment key={pr.k}>{'  '}<span style={{ color: CODE.attr }}>{pr.css}</span>: <span style={{ color: CODE.str }}>{pr.val}</span>;{'\n'}</React.Fragment>))}{'}'}</pre>
+            <div className="flow-label">Natija</div>
+            <Preview title="layout.html" minH={150}><FBOX flex={P('flex')} dir={P('column') ? 'column' : 'row'} justify={P('center') ? 'center' : 'flex-start'} align={P('align') ? 'center' : 'stretch'} gap={P('gap') ? 16 : 6} varied /></Preview>
+            {done && <div style={{ background: T.successSoft, borderLeft: `4px solid ${T.success}`, borderRadius: 12, padding: '12px 15px' }} className="fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>Zo'r! Flexbox bilan qutilarni xohlagancha joylashtirdingiz — bu zamonaviy layoutning asosi!</p></div>}
           </div>
         </div>
         </Zoomable>
@@ -2460,124 +2447,69 @@ const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
-// ===== SCREEN 14 — DEBUGGING (CSS xato) =====
+// ===== SCREEN 14 — DEBUGGING (display: flex tushib qolgan) =====
 const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's14', text: `AI sizga CSS yozib berdi, lekin matn bo'yalmadi. Sababi — kichik, lekin ko'p uchraydigan xato: bir qatordan nuqta-vergul tushib qolgan. Buzuq qatorni topib bosing, keyin tuzatamiz.`, trigger: 'on_mount', waits_for: { type: 'error_found' } }]);
+  const audio = useAudio([{ id: 's14', text: `AI menyuni yonma-yon qilmoqchi bo'ldi: justify-content center yozdi, lekin menyu hali ham ustma-ust. Nega? Chunki display flex yo'q — display block yozilgan. justify-content faqat flex konteynerda ishlaydi. Xato qatorni topib bosing.`, trigger: 'on_mount', waits_for: { type: 'error_found' } }]);
   const [found, setFound] = useState(!!storedAnswer);
   const [fixed, setFixed] = useState(!!storedAnswer);
+  const isNarrow = useIsMobile(768);
   const done = fixed;
-  const pickLine = () => { if (found) return; setFound(true); audio.triggerEvent('error_found'); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(`Topdingiz! color: blue qatoridan nuqta-vergul tushib qolgan. Shuning uchun keyingi qator ham ishlamadi.`); }, 300); };
-  const fix = () => { setFixed(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(`Tuzatildi! Nuqta-vergul qo'shildi va endi CSS ishladi — matn ko'k va katta bo'ldi.`); }, 300); };
+  const pickLine = () => { if (found) return; setFound(true); audio.triggerEvent('error_found'); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(`Topdingiz! display block yozilgan — shuning uchun flex ishlamadi va justify-content e'tiborsiz qoldi.`); }, 300); };
+  const fix = () => { setFixed(true); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(`Tuzatildi! display flex bo'ldi va endi menyu yonma-yon, markazda turibdi.`); }, 300); };
   return (
-    <Stage eyebrow="Debugging" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : (found ? "Endi tuzating" : "Xatoni toping")} onClick={onNext} /></>}>
+    <Stage eyebrow="Debugging" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : (found ? "Endi tuzating" : "Xatoni toping")} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">CSS ishlamadi — <span className="italic" style={{ color: T.accent }}>nega</span>?</h2></div>
-        <Mentor>AI sizga CSS yozib berdi, lekin matn <b style={{ color: T.ink }}>bo'yalmadi</b>. Sababi kichik, lekin ko'p uchraydigan xato: bir qatordan <b style={{ color: T.ink }}>nuqta-vergul (;)</b> tushib qolgan. Buzuq qatorni topib bosing.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">Menyu yonma-yon bo'lmadi — <span className="italic" style={{ color: T.accent }}>nega</span>?</h2></div>
+        <Mentor>AI <span className="mono">justify-content: center</span> yozdi, lekin menyu <b style={{ color: T.ink }}>ustma-ust</b> qoldi. Sababi: <span className="mono">display: flex</span> emas, <b style={{ color: T.ink }}>block</b> yozilgan! Xato qatorni toping.</Mentor>
         <div className="split">
           <div className="col">
             <div className="ai-card fade-up delay-2">
-              <div className="ai-row"><span className="ai-badge">AI</span><span className="ai-bubble">Mana CSS! (lekin nimadir ishlamayapti 🤔)</span></div>
+              <div className="ai-row"><span className="ai-badge">AI</span><span className="ai-bubble">Menyuni markazga qo'ydim! (lekin ustma-ust 🤔)</span></div>
               <div className="ai-code">
-                <div className="ai-line" style={{ cursor: 'default' }}><span className="tg">.karta</span> {'{'}</div>
-                <div className={`ai-line ${found ? (fixed ? 'ok' : 'bad') : ''}`} onClick={pickLine}>{'  '}<span className="at">color</span>: <span className="st">blue</span>{fixed ? <span className="st">;</span> : ''}</div>
-                <div className="ai-line" style={{ cursor: 'default' }}>{'  '}<span className="at">font-size</span>: <span className="st">24px</span>;</div>
+                <div className="ai-line" style={{ cursor: 'default' }}><span className="tg">.menyu</span> {'{'}</div>
+                <div className={`ai-line ${found ? (fixed ? 'ok' : 'bad') : 'btn-pulse'}`} onClick={pickLine}>{'  '}<span className="at">display</span>: <span className="st">{fixed ? 'flex' : 'block'}</span>;</div>
+                <div className="ai-line" style={{ cursor: 'default' }}>{'  '}<span className="at">justify-content</span>: <span className="st">center</span>;</div>
                 <div className="ai-line" style={{ cursor: 'default' }}>{'}'}</div>
               </div>
-              {!found && <p className="ai-prompt">Qaysi qatorda xato? Bosing.</p>}
-              {found && !fixed && (<button className="btn fade-step" style={{ alignSelf: 'flex-start' }} onClick={fix}>🔧 Nuqta-vergul (;) qo'shib tuzatish</button>)}
-              {fixed && <p className="ai-prompt" style={{ color: T.success, fontStyle: 'normal', fontWeight: 600 }}>✓ Tuzatildi — endi CSS ishlaydi!</p>}
+              {!found && <p className="ai-prompt">Qaysi qator xato? Bosing.</p>}
+              {found && !fixed && (<button className="btn fade-step btn-pulse" style={{ alignSelf: 'flex-start' }} onClick={fix}>🔧 display: flex ga tuzatish</button>)}
+              {fixed && <p className="ai-prompt" style={{ color: T.success, fontStyle: 'normal', fontWeight: 600 }}>✓ Tuzatildi — endi flex ishlaydi!</p>}
             </div>
           </div>
           <div className="col">
             <div className="flow-label">Natija</div>
-            <Preview title="karta.html" minH={120}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 90 }}><h1 style={{ fontFamily: 'Georgia, serif', margin: 0, transition: 'all 0.3s', color: fixed ? '#1971C2' : T.ink, fontSize: fixed ? 24 : 18 }}>Salom!</h1></div></Preview>
-            {!found && (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Matn oddiy qora — CSS ishlamadi. Har CSS qatori <span className="mono">;</span> bilan tugashi kerak. Qaysi qatorda u yo'q?</p></div>)}
-            {found && !fixed && (<div className="frame-warn fade-step"><p className="note-h" style={{ color: T.accent }}>✓ Topdingiz!</p><p className="body" style={{ margin: 0, color: T.ink }}><span className="mono">color: blue</span> oxirida <b>;</b> yo'q. Brauzer qayerda tugashini bilmay, keyingi qatorni ham buzadi. Tuzating →</p></div>)}
-            {fixed && (<div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Bitta ; — katta farq!</p><p className="ta-sub">Har CSS qatori nuqta-vergul bilan tugaydi</p></div>)}
+            <Preview title="menyu.html" minH={120}><Navbar flex={fixed} justify="center" /></Preview>
+            {!found && !isNarrow && (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Menyu ustma-ust — flex ishlamayapti. <span className="mono">justify-content</span> faqat <span className="mono">display: flex</span> bo'lganda ishlaydi. Qaysi qatorda muammo?</p></div>)}
+            {found && !fixed && (<div className="frame-warn fade-step"><p className="note-h" style={{ color: T.accent }}>✓ Topdingiz!</p><p className="body" style={{ margin: 0, color: T.ink }}><span className="mono">display: block</span> — flex emas! Shuning uchun justify-content e'tiborsiz qoldi. <span className="mono">flex</span> ga tuzating →</p></div>)}
+            {fixed && (<div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">display: flex — hammasining kaliti!</p><p className="ta-sub">justify/align/gap faqat flex konteynerda ishlaydi</p></div>)}
           </div>
         </div>
       </div>
     </Stage>
   );
 };
-// ===== SCREEN 15 — YAKUNIY (qo'lda CSS yozish) =====
-const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's15', text: `Oxirgi qadam — o'zingiz yozasiz. h1 sarlavhani qizil qiling: to'liq CSS qoidasini yozing — selektor, qavs, xususiyat, qiymat va nuqta-vergul. Hammasini o'zingiz tering; pastdagi ro'yxat qaysi qadam bajarilganini ko'rsatib turadi.`, trigger: 'on_mount', waits_for: { type: 'typed_ok' } }]);
-  const [value, setValue] = useState(storedAnswer?.picked || '');
-  const [passed, setPassed] = useState(!!storedAnswer?.correct);
-  const hasSel = /h1/i.test(value);
-  const hasOpen = value.includes('{');
-  const hasClose = value.includes('}');
-  const hasBrace = hasOpen && hasClose;
-  const cm = value.match(/color\s*:\s*([^;}\s]+)/i);
-  const hasProp = /color\s*:/i.test(value);
-  const colorVal = cm ? cm[1] : '';
-  const hasVal = !!colorVal;
-  const hasSemi = value.includes(';');
-  const valid = hasSel && hasBrace && hasProp && hasVal && hasSemi;
-  useEffect(() => {
-    if (valid && !passed) {
-      setPassed(true);
-      onAnswer(screen, { correct: true, picked: value, stage: 'final' });
-      audio.triggerEvent('typed_ok');
-      if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(`Zo'r! To'liq CSS qoidasini o'zingiz yozdingiz — selektor, xususiyat, qiymat va nuqta-vergul.`); }, 300);
-    }
-  }, [valid]);
-  return (
-    <Stage eyebrow="Yakuniy · amaliy" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!passed} label={passed ? "Davom etish" : "CSS qoidasini yozing"} onClick={onNext} /></>}>
-      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">Oxirgi qadam: <span className="italic" style={{ color: T.accent }}>o'zingiz</span> CSS yozing.</h2></div>
-        <Mentor>h1 sarlavhani <b style={{ color: T.ink }}>qizil</b> qiling. To'liq qoidani <b style={{ color: T.ink }}>o'zingiz</b> yozing: <span className="mono">h1 {'{'} color: red; {'}'}</span>.</Mentor>
-        <div className="split">
-          <div className="col">
-            <input className="fade-up delay-2" value={value} onChange={e => setValue(e.target.value)} placeholder="h1 { color: red; }" spellCheck={false} autoCapitalize="off" autoCorrect="off" style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 16, padding: '14px 16px', borderRadius: 12, border: 'none', background: T.paper, color: T.ink, outline: 'none', transition: 'box-shadow 0.2s', boxShadow: valid ? `0 0 0 2px ${T.success}, 0 8px 20px -8px rgba(${T.shadowBase},0.2)` : `0 4px 14px -6px rgba(${T.shadowBase},0.16)` }} />
-            {value && !passed && <div className="fade-up delay-2"><button className="gchip" onClick={() => setValue('')}>↺ Tozalash</button></div>}
-            <div className="fade-up delay-2" style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-              <span className="tagpill" style={{ opacity: hasSel ? 1 : 0.4 }}>{hasSel ? '✓' : '1'} h1</span>
-              <span className="tagpill" style={{ opacity: hasBrace ? 1 : 0.4 }}>{hasBrace ? '✓' : '2'} {'{ }'}</span>
-              <span className="tagpill" style={{ opacity: hasProp ? 1 : 0.4 }}>{hasProp ? '✓' : '3'} color:</span>
-              <span className="tagpill" style={{ opacity: hasVal ? 1 : 0.4 }}>{hasVal ? '✓' : '4'} qiymat</span>
-              <span className="tagpill" style={{ opacity: hasSemi ? 1 : 0.4 }}>{hasSemi ? '✓' : '5'} ;</span>
-            </div>
-            {passed
-              ? (<div className="frame-success fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>✓ Zo'r! To'liq CSS qoidasi — <b>selektor {'{'} xususiyat: qiymat; {'}'}</b>.</p></div>)
-              : (<p className="body" style={{ margin: 0, color: T.ink3, fontSize: 13 }}>Bu — 5 ta tekshiruvdan biri, yakka o'zi o'tishni hal qilmaydi.</p>)}
-          </div>
-          <div className="col">
-            <div className="flow-label">natija (jonli)</div>
-            <Preview title="natija.html" minH={130}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100 }}>
-              {hasVal
-                ? <h1 key={colorVal} className="fade-step" style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(26px,4.5vw,36px)', color: colorVal, margin: 0, transition: 'color 0.2s' }}>Salom! 👋</h1>
-                : <p style={{ fontFamily: 'Georgia, serif', color: T.ink3, fontStyle: 'italic', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>Yoza boshlang — matn shu yerda <br />jonli bo'yaladi</p>}
-            </div></Preview>
-            <p className="mono small" style={{ color: T.ink3, margin: 0, textAlign: 'center' }}>{hasVal ? `color: ${colorVal}` : '↑ color qiymatini yozsangiz, darhol ko\'rinadi'}</p>
-          </div>
-        </div>
-      </div>
-    </Stage>
-  );
-};
-
-// 🃏 Qayta ishlatiladigan FLASHCARDS — aktiv takrorlash (3D flip + o'z-o'zini baholash).
+// ===== SCREEN 15 — YAKUNIY (qo'lda flex yozish) =====
+// ===== SCREEN 16 — YAKUN =====
+// ===== 🃏 FLASHCARDS (yakuniy takrorlash) — front: vazifa, back: xususiyat/atama =====
 const CSS_FLASHCARDS = [
-  { front: 'Matn (harflar) rangi', back: 'color', note: 'color: red;' },
-  { front: 'Orqa fon rangi', back: 'background-color', note: 'fon uchun' },
-  { front: "Shrift o'lchami (kattaligi)", back: 'font-size', note: '24px' },
-  { front: 'Shrift turi (Arial, Georgia)', back: 'font-family', note: 'harf shakli' },
-  { front: 'Matnni qalin qilish', back: 'font-weight', note: 'bold' },
-  { front: 'Matnni tekislash (chap/markaz)', back: 'text-align', note: 'center · left' },
-  { front: "Ichki bo'shliq (kontent atrofida)", back: 'padding', note: 'quti ichida' },
-  { front: "Tashqi bo'shliq (elementlar orasida)", back: 'margin', note: 'qutilar orasi' },
-  { front: 'Qaysi elementni bezashni aytadi', back: 'selektor', note: 'h1, p, .card' },
-  { front: "Nimani o'zgartirishni aytadi", back: 'xususiyat', note: 'color, font-size' },
-  { front: "Qanday bo'lishini aytadi", back: 'qiymat', note: 'red, 24px' },
-  { front: 'Har CSS satri oxirida', back: ';', note: 'nuqta-vergul' },
+  { front: 'Elementlarni yonma-yon qatorga tizish', back: 'display: flex', note: 'konteynerga' },
+  { front: "Flex yo'nalishi (qator yoki ustun)", back: 'flex-direction', note: 'row · column' },
+  { front: "Asosiy o'q bo'ylab joylashuv", back: 'justify-content', note: 'center · space-between' },
+  { front: "Ko'ndalang o'q bo'ylab tekislash", back: 'align-items', note: 'center · stretch' },
+  { front: "Flex elementlar orasidagi bo'shliq", back: 'gap', note: '12px' },
+  { front: "Butun qatorni egallaydigan element", back: 'block', note: 'div, h1, p' },
+  { front: 'Yonma-yon turuvchi element', back: 'inline', note: 'span, a' },
+  { front: "To'liq markazga (gorizontal + vertikal)", back: 'justify-content + align-items', note: 'center · center' },
+  { front: "Chekkalarga yoyib, orasini teng ochish", back: 'space-between', note: 'menyu uchun' },
+  { front: 'Brauzer ishlab chiquvchi vositasi', back: 'DevTools', note: 'F12' },
+  { front: "DevTools'da CSS ko'rinadigan panel", back: 'Styles', note: 'jonli tahrir' },
+  { front: 'display: flex qayerga yoziladi?', back: 'konteynerga', note: "o'rab turgan element" },
 ];
 function Flashcards({ cards }) {
   const [queue, setQueue] = useState(() => cards.map((_, i) => i));
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState(0);
-  const [exiting, setExiting] = useState(null); // 'knew' | 'again' — karta uchib chiqish animatsiyasi (Quizlet uslubi)
+  const [exiting, setExiting] = useState(null); // 'knew' | 'again' — karta uchib chiqish animatsiyasi
   const swapRef = useRef(0);                    // har almashishda karta remount bo'lib, kirish animatsiyasi o'ynaydi
   const total = cards.length;
   const cur = queue[0];
@@ -2618,20 +2550,19 @@ function Flashcards({ cards }) {
 
 // ===== SCREEN: FLASHCARD TAKRORLASH (yakuniy summarydan oldin) =====
 const ScreenFlashcards = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 'sflash', text: `Darsni yakunlashdan oldin, bugun o'rgangan CSS xususiyatlarini tez takrorlaymiz. Har kartada bir vazifa — javobini o'ylang, keyin kartani bosib tekshiring.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 'sflash', text: `Darsni yakunlashdan oldin, bugun o'rgangan flexbox xususiyatlarini tez takrorlaymiz. Har kartada bir vazifa — javobini o'ylang, keyin kartani bosib tekshiring.`, trigger: 'on_mount', waits_for: null }]);
   useEffect(() => { if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, []); // eslint-disable-line
   return (
     <Stage eyebrow="Takrorlash" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={false} label="Yakunlash →" onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">CSS xususiyatlarini <span className="italic" style={{ color: T.accent }}>tez takrorlaymiz</span>.</h2></div>
-        <Mentor>Darsni yakunlashdan oldin bugun o'rgangan CSS xususiyatlarini takrorlaymiz. Har kartada bir vazifa — <b style={{ color: T.ink }}>javobi nima</b> ekanini o'ylang, keyin kartani bosib tekshiring. <b style={{ color: T.ink }}>Bildim</b> yoki <b style={{ color: T.ink }}>Takrorlash</b> bilan baholang.</Mentor>
+        <div className="head"><h2 className="title h-title fade-up">Flexbox xususiyatlarini <span className="italic" style={{ color: T.accent }}>tez takrorlaymiz</span>.</h2></div>
+        <Mentor>Darsni yakunlashdan oldin bugun o'rgangan xususiyatlarni takrorlaymiz. Har kartada bir vazifa — <b style={{ color: T.ink }}>javobi nima</b> ekanini o'ylang, keyin kartani bosib tekshiring. <b style={{ color: T.ink }}>Bildim</b> yoki <b style={{ color: T.ink }}>Takrorlash</b> bilan baholang.</Mentor>
         <div className="fc-center"><Flashcards cards={CSS_FLASHCARDS} /></div>
       </div>
     </Stage>
   );
 };
 
-// ===== SCREEN 16 — YAKUN =====
 const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) => {
   const _gate = useContext(LiveGateCtx) || {};
   const _live = _gate.live;
@@ -2648,31 +2579,34 @@ const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) 
     if (isMentorL && quizSt === 'off') { try { await _live.quizControl('lobby', -1); } catch { return; } }
     setArenaSolo(studentSolo); setArena(true);
   };
-  const audio = useAudio([{ id: 's16', text: "Birinchi CSS darsi tugadi! Endi sahifani bezay olasiz: ranglar — color va background-color, shriftlar — font-family va font-size, bo'shliqlar — padding va margin. Va hammasi bitta shaklda: selektor, xususiyat, qiymat. Keyingi darsda yana ko'proq bezak sirlarini o'rganamiz.", trigger: 'on_mount', waits_for: null }]);
-  const RECAP = ['CSS — sahifani bezaydi (HTML skelet, CSS bezak)', 'Shakl: selektor { xususiyat: qiymat; }', 'Ranglar — color va background-color', 'Shriftlar — font-family, font-size, font-weight', 'Bo\'shliqlar — padding (ichki), margin (tashqi)'];
-  const HOMEWORK = [{ b: 'Ranglar', t: '— sahifangizga color va background bering' }, { b: 'Shrift', t: '— font-family va font-size tanlang' }, { b: 'Bo\'shliq', t: '— padding va margin bilan tartibga soling' }];
-  const GLOSSARY = [{ b: 'CSS', t: '— bezak tili' }, { b: 'Selektor', t: '— qaysi element (h1)' }, { b: 'Xususiyat', t: '— nima (color)' }, { b: 'Qiymat', t: '— qanday (red)' }, { b: 'color/background-color', t: '— ranglar' }, { b: 'font-family/size/weight', t: '— shrift' }, { b: 'padding/margin', t: '— ichki/tashqi bo\'shliq' }];
+  const audio = useAudio([{ id: 's16', text: "Ikkinchi CSS darsi tugadi! Endi elementlarni joylashtira olasiz: display flex bilan qatorga tizish, flex-direction bilan yo'nalish, justify-content va align-items bilan markazga qo'yish, gap bilan oralarini ochish. Va DevTools'ning Styles paneli bilan CSS'ni jonli o'zgartirasiz.", trigger: 'on_mount', waits_for: null }]);
+  const RECAP = ['block (stack) va inline (yonma-yon)', 'display: flex — konteynerga beriladi', 'flex-direction — row / column', 'asosiy o\'q (justify) · ko\'ndalang o\'q (align)', 'gap — ichki elementlar orasidagi bo\'shliq', 'DevTools Styles — CSS\'ni jonli tahrir'];
+  const HOMEWORK = [{ b: 'Menyu', t: '— navigatsiyani display: flex bilan qatorga tizing' }, { b: 'Markaz', t: '— justify-content bilan markazga qo\'ying' }, { b: 'DevTools', t: '— Styles\'da qiymatlarni o\'zgartirib ko\'ring' }];
+  // Kalit so'zlar (GLOSSARY) olib tashlandi — takrorlash Flashcard sahifasida (4.2 etalon).
   const correct = SCORED_IDX.filter(i => answers[i]?.correct).length;
   const total = SCORED_IDX.length;
   const PASSED = (total ? correct / total : 0) >= 0.6;
-  const [open, setOpen] = useState(false);
   return (
     <Stage eyebrow="Tayyor" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><button className="btn-ghost" onClick={onReset} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(16px,2.2vw,22px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Qaytadan</button><button className="btn-white-accent" onClick={onFinish} style={{ marginLeft: 'auto', padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Keyingi dars →</button></>}>
       <div className="screen">
-        <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> CSS 1-dars tugadi</span><h2 className="title h-title fade-up d1">Sahifani <span className="italic" style={{ color: T.accent }}>bezashni</span> o'rgandingiz.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Endi ranglar, shriftlar va bo\'shliqlarni o\'zingiz boshqarasiz.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko\'ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
+        <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> CSS 2-dars tugadi</span><h2 className="title h-title fade-up d1">Endi <span className="italic" style={{ color: T.accent }}>joylashtira</span> olasiz.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Flexbox va DevTools — zamonaviy layoutning asosi sizda.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko\'ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
         <div className={`qz-cta cs-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
           <CsWordmark
             stats={false}
-            disabled={studentWait}
             liveOn={studentLive}
+            disabled={studentWait}
             onClick={studentWait ? undefined : openArena}
-            hint={studentWait ? '⏳ Mentorni kuting' : undefined}
+            hint={studentWait ? '⏳ Mentorni kuting'
+              : studentSolo ? "📖 Testni o'zim ishlash →"
+              : studentLive ? (quizSt === 'done' ? "🏆 Natijalarni ko'rish →" : '🔥 Testga kirish →')
+              : isMentorL ? (quizSt === 'off' ? '⚡ Testni ochish →' : '⚡ Davom ettirish →')
+              : '⚡ Testni ishlash →'}
           />
         </div>
         {arena && <QuizArena live={_live || { mode: 'self' }} startSolo={arenaSolo} onClose={() => setArena(false)} />}
         <div className="split">
           <div className="card fade-up d3"><div className="card-lbl" style={{ color: T.success }}><span className="tick" style={{ width: 16, height: 16, borderRadius: '50%', background: T.success, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✓</span> Endi siz bilasiz</div><ul className="recap">{RECAP.map((r, i) => (<li key={i} style={{ animationDelay: `${0.3 + i * 0.07}s` }}><span className="ck">✓</span><span>{r}</span></li>))}</ul></div>
-          <div className="card hw fade-up d4"><div className="card-lbl" style={{ color: T.accent }}>🎨 Uyga vazifa</div><p className="body" style={{ margin: '0 0 10px', color: T.ink }}>HTML sahifangizni CSS bilan bezang:</p><ul>{HOMEWORK.map((h, i) => (<li key={i}><b>{h.b}</b> <span className="t">{h.t}</span></li>))}</ul><p className="hw-note">Keyingi darsda chegaralar, soyalar va joylashuvni o'rganamiz!</p></div>
+          <div className="card hw fade-up d4"><div className="card-lbl" style={{ color: T.accent }}>🧩 Uyga vazifa</div><p className="body" style={{ margin: '0 0 10px', color: T.ink }}>Saytingiz menyusini Flexbox bilan yasang:</p><ul>{HOMEWORK.map((h, i) => (<li key={i}><b>{h.b}</b> <span className="t">{h.t}</span></li>))}</ul><p className="hw-note">Flexbox — deyarli har bir zamonaviy saytda ishlatiladi!</p></div>
         </div>
         <div className="card ach-coll fade-up d3">
           <div className="card-lbl" style={{ color: T.accent }}>🏅 Nishonlaringiz — {(achievements ? achievements.size : 0)}/{Object.keys(ACHIEVEMENTS).length}</div>
@@ -2686,7 +2620,6 @@ const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) 
             ); })}
           </div>
         </div>
-        <div className="gloss fade-up d4"><div className="gloss-head" onClick={() => setOpen(o => !o)}><span className="lbl">💡 Kalit so'zlar (takrorlash)</span><span className="gloss-toggle">{open ? '−' : '+'}</span></div>{open && (<div className="gloss-body">{GLOSSARY.map((g, i) => (<span key={i}><b>{g.b}</b> {g.t}{i < GLOSSARY.length - 1 ? ' · ' : ''}</span>))}</div>)}</div>
       </div>
     </Stage>
   );
@@ -2694,7 +2627,7 @@ const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) 
 
 // ============================================================ LESSON ROOT — ({ lang, onFinished })
 // Podium yorliqlari (scored indeks -> qisqa nom)
-const Q_LABELS = { 5: "Xususiyat (property)", 7: "color — matn rangi", 11: "font-size", 14: "padding — ichki bo'shliq", 17: "CSS qoidasi yozish (yakuniy)" };
+const Q_LABELS = { 5: "display: flex", 7: "flex-direction: column", 11: "justify-content: center", 14: "DevTools — Styles" };
 
 const Confetti = () => {
   const COLORS = [T.accent, T.success, T.blue, '#FFD380', '#FF7755', '#7DD181'];
@@ -2718,7 +2651,7 @@ const Confetti = () => {
 };
 
 // Server-baholash javob kaliti (mentor darsni ochganda avto-yuklanadi). s15 = -1 (yakuniy amaliy).
-const INLINE_KEYS = { s4: 3, s5b: 1, s9: 2, s12: 3, s15: -1 };
+const INLINE_KEYS = { s4: 2, s5b: 3, s9: 1, s12: 2 };
 
 const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
   const gate = useContext(LiveGateCtx) || {};
@@ -2828,7 +2761,7 @@ const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
   );
 };
 
-// ===== ⚔️ MUSTAHKAMLASH-JANG (Kahoot arena) =====
+// ===== ⚡ MUSTAHKAMLASH-JANG (Kahoot arena) =====
 const QUIZ_MS = 20000;
 const QUIZ_BASE_IDX = 100;
 const QUIZ_COLORS = ['#FF5A2C', '#0FA6D6', '#F5A623', '#22A05C']; // CodeStrike brend palitrasi: coral · ocean · sun · leaf
@@ -2846,18 +2779,18 @@ const QZ_BG_SHAPES = [
   { ch: 'bold',     l: 2,  t: 46, s: 22, c: 'rgba(203,173,255,0.10)', d: 26, dl: 2.6 },
 ];
 const QUIZ_BANK = [
-  { q: "CSS nima uchun ishlatiladi?", opts: ["Sahifani bezash (rang, shrift, bo'shliq)", "Sahifa tuzilishini yaratish", "Ma'lumotlar bazasi", "Serverga so'rov"], correct: 0 },
-  { q: "`h1 { color: red; }` da `h1` nima deb ataladi?", opts: ["Xususiyat", "Selektor", "Qiymat", "Teg"], correct: 1 },
-  { q: "`color: red;` da `red` nima?", opts: ["Selektor", "Xususiyat", "Qiymat", "Property"], correct: 2 },
-  { q: "Matn rangini qaysi xususiyat o'zgartiradi?", opts: ["`background-color`", "`margin`", "`font-size`", "`color`"], correct: 3 },
-  { q: "Fon rangini qaysi xususiyat belgilaydi?", opts: ["`background-color`", "`color`", "`border`", "`padding`"], correct: 0 },
-  { q: "Shrift turini (Arial) qaysi xususiyat tanlaydi?", opts: ["`font-size`", "`font-family`", "`font-weight`", "`text-align`"], correct: 1 },
-  { q: "Shrift o'lchamini qaysi xususiyat belgilaydi?", opts: ["`font-family`", "`color`", "`font-size`", "`line-height`"], correct: 2 },
-  { q: "Matnni qalin (bold) qilish uchun qaysi xususiyat?", opts: ["`font-style`", "`text-align`", "`font-size`", "`font-weight`"], correct: 3 },
-  { q: "Kontent bilan chet orasidagi ICHKI bo'shliq qaysi?", opts: ["`padding`", "`margin`", "`border`", "`gap`"], correct: 0 },
-  { q: "Element bilan boshqalar orasidagi TASHQI bo'shliq qaysi?", opts: ["`padding`", "`margin`", "`color`", "`font-size`"], correct: 1 },
-  { q: "Har CSS satri oxiriga nima qo'yiladi?", opts: ["Nuqta", "Vergul", "Nuqta-vergul (`;`)", "Ikki nuqta"], correct: 2 },
-  { q: "Xususiyat va qiymat orasida qaysi belgi?", opts: ["Nuqta-vergul (`;`)", "Teng (`=`)", "Vergul", "Ikki nuqta (`:`)"], correct: 3 },
+  { q: "'block' element sahifada qanday joylashadi?", opts: ["Butun qatorni egallaydi", "Yonma-yon joylashadi", "Har doim markazda turadi", "Faqat o'z kengligini oladi"], correct: 0 },
+  { q: "Qaysi biri 'inline' element?", opts: ["div", "h1", "span", "p"], correct: 2 },
+  { q: "Elementlarni yonma-yon qatorga tizish uchun qaysi xususiyat?", opts: ["display: flex", "text-align: center", "font-size: 20px", "color: red"], correct: 0 },
+  { q: "'display: flex' qayerga yoziladi?", opts: ["O'rab turgan konteynerga", "Har bir ichki elementga alohida", "Faqat body tegiga", "Matnning o'ziga"], correct: 0 },
+  { q: "Flex elementlarni vertikal ustunga tizish uchun?", opts: ["flex-direction: row", "display: block", "flex-direction: column", "justify-content: center"], correct: 2 },
+  { q: "Flex elementlar orasidagi bo'shliqni qaysi xususiyat ochadi?", opts: ["margin-top", "padding", "border", "gap"], correct: 3 },
+  { q: "Flex'ni gorizontal markazga qo'yish uchun?", opts: ["align-items: center", "text-align: center", "margin: auto", "justify-content: center"], correct: 3 },
+  { q: "Flex'ni vertikal markazga qo'yish uchun?", opts: ["justify-content: center", "flex-direction: column", "gap: center", "align-items: center"], correct: 3 },
+  { q: "'justify-content: space-between' nima qiladi?", opts: ["Hammasini markazga to'playdi", "Chetlarga yoyib teng ochadi", "Ustma-ust taxlab qo'yadi", "Elementlarni yashiradi"], correct: 1 },
+  { q: "DevTools'ni odatda qaysi tugma ochadi?", opts: ["Ctrl + S", "F12", "Ctrl + P", "Alt + Tab"], correct: 1 },
+  { q: "DevTools'da CSS qaysi panelda ko'rinadi?", opts: ["Console", "Network", "Styles", "Sources"], correct: 2 },
+  { q: "DevTools'da CSS qiymatini o'zgartirsangiz?", opts: ["Fayl butunlay o'zgaradi", "Vaqtincha, faqat sizda", "Butun sayt buziladi", "Hech narsa bo'lmaydi"], correct: 1 },
 ];
 const quizPts = (elapsedMs) => elapsedMs <= 500 ? 1000 : Math.max(0, Math.round(1000 * (1 - (Math.min(elapsedMs, QUIZ_MS) / QUIZ_MS) / 2)));
 // Bitta o'yinchining barcha javoblaridan yakuniy hisob (hamma klientda bir xil chiqadi)
@@ -3131,7 +3064,7 @@ function QuizArena({ live, onClose, startSolo }) {
   // Mentor test o'rtasida ✕ bossa — ogohlantiramiz: sinf arenada kutib qoladi.
   const closeArena = () => {
     if (isMentor && !solo && phase !== 'done') {
-      if (!window.confirm("Test hali yakunlanmadi — yopsangiz o'quvchilar arenada kutib qoladi.\nKeyin «⚔️ Davom ettirish» bilan aynan shu joydan qaytishingiz mumkin.\n\nBaribir yopilsinmi?")) return;
+      if (!window.confirm("Test hali yakunlanmadi — yopsangiz o'quvchilar arenada kutib qoladi.\nKeyin «⚡ Davom ettirish» bilan aynan shu joydan qaytishingiz mumkin.\n\nBaribir yopilsinmi?")) return;
     }
     onClose();
   };
@@ -3157,8 +3090,8 @@ function QuizArena({ live, onClose, startSolo }) {
       {/* ===== LOBBY ===== */}
       {phase === 'lobby' && (
         <div className="qz-view fade-step">
-          <div className="qz-brand"><QzBolt size={74} /><span className="qz-wm">Code<span className="qz-wm-h">Strike</span></span></div>
-          <p className="qz-sub">{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossangiz — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
+          <CsWordmark />
+          <p className="qz-sub" style={{ marginTop: -4 }}>{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossangiz — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
           {!solo && (
             <div className="qz-lobby-players">
               {players.map(p => <span key={p.id} className={`qz-pchip ${p.id === live.playerId ? 'me' : ''}`}>{p.nickname}</span>)}
@@ -3299,14 +3232,17 @@ function QuizArena({ live, onClose, startSolo }) {
 }
 
 // ===== 🏅 ACHIEVEMENTS (nishonlar) — dars davomidagi real bosqichlar uchun =====
+// (Nomlar/tavsiflar — Metodist sayqallaydi; struktura + trigger wiring — Quruvchi.)
 const ACHIEVEMENTS = {
-  rang:      { icon: '🎨', name: 'Painted It!', desc: "Matn va fon ranglarini o'zgartirdingiz" },
-  bezak:     { icon: '🖌️', name: 'Styled It!',  desc: "Elementni CSS bilan chiroyli qildingiz" },
+  flexbox:   { icon: '📐', name: 'Lined Up!',   desc: "display: flex bilan elementlarni qatorga tizdingiz" },
+  markaz:    { icon: '🎯', name: 'Bullseye!',   desc: "justify-content va align-items bilan markazga qo'ydingiz" },
   debugger:  { icon: '🐞', name: 'Nice Catch!', desc: 'Buzuq CSS kodini topib tuzatdingiz' },
-  graduate:  { icon: '🏆', name: 'Level Up!',   desc: "CSS 1-darsini to'liq yakunladingiz" },
+  graduate:  { icon: '🏆', name: 'Level Up!',   desc: "CSS 2-darsini to'liq yakunladingiz" },
 };
-// Ekran id → nishon (recordAnswer'da avtomatik beriladi)
-const ACH_TRIGGERS = { s5: 'rang', s13: 'bezak', s14: 'debugger' };
+// Ekran id (SCREEN_META) → nishon (recordAnswer'da correct javobda beriladi).
+// 🔴 Faqat MA'NOLI challenge ekranlar: s3b (DragDrop qoidani to'g'ri yig'ish), s7 (namunaga aynan moslash — space-between), s14 (buzuq CSS'ni topib tuzatish).
+// ❌ Toggle/exploration ekranlariga (s2/s5/s6/s8/s11) bog'lanmaydi — u yerda har bosishda correct:true yonadi → nishon TEKIN beriladi.
+const ACH_TRIGGERS = { s3b: 'flexbox', s7: 'markaz', s14: 'debugger' };
 // 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI — yorqin nurlar, medal portlashi, uchqunlar, zarba to'lqini
 function AchCelebrate({ ach, onDone }) {
   useEffect(() => { const t = setTimeout(onDone, 4000); return () => clearTimeout(t); }, []); // eslint-disable-line
@@ -3341,6 +3277,7 @@ function AchToasts({ toasts, onDone }) {
   return <AchCelebrate key={t.k} ach={a} onDone={() => onDone(t.k)} />;
 }
 
+// Jonli darsda mentor praktika paneli — o'quvchilar o'z qurilmasida yozadi, mentor kuzatadi + doskada ko'rsatadi
 function MentorPracticeOverlay({ entry, live, onClose }) {
   const [view, setView] = useState('watch'); // 'watch' | 'demo'
   const [data, setData] = useState({ players: null, rows: [] });
@@ -3409,52 +3346,117 @@ function MentorPracticeOverlay({ entry, live, onClose }) {
 }
 
 // ===== CSS PRAKTIKALARI — kod yozish (HtmlCompiler + jonli preview, C.cssProp/cssValue tekshiruvi) =====
-// index.html — bezaladigan material (o'zgarmas), style.css — o'quvchi CSS yozadigan joy (starter faqat marker).
-const TASK_COLOR = {
-  eyebrow: 'Praktika · ranglar',
-  title: "Sarlavhaga rang bering",
-  brief: "style.css faylida h1 ga color (matn rangi) va background-color (fon rangi) bering. To'g'ri bo'lsa o'ngda natija ko'rinadi.",
+// index.html — joylashtiriladigan material (o'zgarmas), style.css — o'quvchi CSS yozadigan joy (starter faqat marker).
+const TASK_FLEX = {
+  eyebrow: 'Praktika · flex',
+  title: "Elementlarni qatorga tizing",
+  brief: "style.css faylida .row ga display: flex bering va gap bilan orasini oching. To'g'ri bo'lsa o'ngda natija ko'rinadi.",
   files: [
-    { name: 'index.html', lang: 'html', starter: '<h1>Mening sahifam</h1>' },
+    { name: 'index.html', lang: 'html', starter: '<div class="row">\n  <span>A</span>\n  <span>B</span>\n  <span>C</span>\n</div>' },
     { name: 'style.css', lang: 'css', starter: '/* Bu yerga yozing */\n' },
   ],
   requirements: [
-    { id: 'color', label: 'h1 — color (matn rangi)', check: C.cssProp('h1', 'color', "`style.css`da `h1 { color: ...; }` yozing — matn rangi") },
-    { id: 'bg', label: 'h1 — background-color (fon)', check: C.cssProp('h1', 'background-color', "`h1 { background-color: ...; }` qo'shing — fon rangi") },
+    { id: 'flex', label: '.row — display: flex', check: C.cssValue('.row', 'display', 'flex', "`.row { display: flex; }` yozing — qatorga tizadi") },
+    { id: 'gap', label: '.row — gap (oralari)', check: C.cssProp('.row', 'gap', "`.row { gap: 12px; }` qo'shing — elementlar orasi") },
   ],
 };
-const TASK_TEXT = {
-  eyebrow: 'Praktika · shrift',
-  title: "Matnni kattalashtiring va tekislang",
-  brief: "h1 ga font-size (o'lcham) bering va text-align bilan markazga tekislang.",
+const TASK_CENTER = {
+  eyebrow: 'Praktika · markaz',
+  title: "Qutini markazga joylang",
+  brief: ".box ga display: flex, justify-content: center va align-items: center bering — ichidagi element to'liq markazda tursin.",
   files: [
-    { name: 'index.html', lang: 'html', starter: '<h1>Katta sarlavha</h1>\n<p>Oddiy matn.</p>' },
+    { name: 'index.html', lang: 'html', starter: '<div class="box" style="height:120px;background:#FFE066">\n  <span>Salom!</span>\n</div>' },
     { name: 'style.css', lang: 'css', starter: '/* Bu yerga yozing */\n' },
   ],
   requirements: [
-    { id: 'size', label: 'h1 — font-size', check: C.cssProp('h1', 'font-size', "`h1 { font-size: 40px; }` kabi o'lcham bering") },
-    { id: 'align', label: 'h1 — text-align: center', check: C.cssValue('h1', 'text-align', 'center', "`h1 { text-align: center; }` yozing — markazga") },
+    { id: 'jc', label: '.box — justify-content: center', check: C.cssValue('.box', 'justify-content', 'center', "`.box { justify-content: center; }` — gorizontal markaz") },
+    { id: 'ai', label: '.box — align-items: center', check: C.cssValue('.box', 'align-items', 'center', "`.box { align-items: center; }` — vertikal markaz") },
   ],
 };
-const TASK_BOX = {
-  eyebrow: "Praktika · bo'shliqlar",
-  title: "Qutiga bo'shliq bering",
-  brief: ".box ga padding (ichki bo'shliq) va margin (tashqi bo'shliq) bering — quti ichi va atrofi havodor bo'lsin.",
+const TASK_COLUMN = {
+  eyebrow: 'Praktika · ustun',
+  title: "Menyuni ustunga tizing",
+  brief: ".menu ga display: flex va flex-direction: column bering — bandlar ustma-ust (vertikal) tizilsin.",
   files: [
-    { name: 'index.html', lang: 'html', starter: '<div class="box" style="background:#FFE066">Salom!</div>' },
+    { name: 'index.html', lang: 'html', starter: '<div class="menu">\n  <a>Bosh sahifa</a>\n  <a>Xizmatlar</a>\n  <a>Aloqa</a>\n</div>' },
     { name: 'style.css', lang: 'css', starter: '/* Bu yerga yozing */\n' },
   ],
   requirements: [
-    { id: 'padding', label: '.box — padding (ichki)', check: C.cssProp('.box', 'padding', "`.box { padding: 20px; }` — ichki bo'shliq") },
-    { id: 'margin', label: '.box — margin (tashqi)', check: C.cssProp('.box', 'margin', "`.box { margin: 20px; }` — tashqi bo'shliq") },
+    { id: 'flex', label: '.menu — display: flex', check: C.cssValue('.menu', 'display', 'flex', "`.menu { display: flex; }` yozing") },
+    { id: 'col', label: '.menu — flex-direction: column', check: C.cssValue('.menu', 'flex-direction', 'column', "`.menu { flex-direction: column; }` — ustunga tizadi") },
   ],
 };
-// Praktika handoff: shu ekran indeksidan KEYIN ochiladi (7=Rang formatlari · 9=Qalinlik · 12=margin)
+// Praktika handoff: shu ekran indeksidan KEYIN ochiladi (5=flex-direction · 9=align-items · 12=justify)
 const PRACTICE_AFTER = {
-  8:  { task: TASK_COLOR, starter: '' },
-  10: { task: TASK_TEXT,  starter: '' },
-  13: { task: TASK_BOX,   starter: '' },
+  // 9.4 pedagogik tartib: FLEX praktikasi gap o'rgatilgan s6 (idx 8) dan KEYIN — display:flex + gap ikkalasi ham o'tilgan bo'ladi.
+  8:  { task: TASK_FLEX,   starter: '' },
+  10: { task: TASK_CENTER, starter: '' },
+  13: { task: TASK_COLUMN, starter: '' },
 };
+
+// ===== 👋 ONBOARDING — "coach-mark": har qadamda haqiqiy tugmaga spotlight + so'z (rolga qarab, bir marta) =====
+const TOUR = {
+  learner: [
+    { sel: '[data-tour="next"]', ic: '▶', h: "Oldinga o'tish", body: <>Tayyor bo'lsangiz, <b>«Davom etish»</b> bilan keyingi qadamga o'tasiz. Yonidagi <b>«Orqaga»</b> bilan qaytasiz.</> },
+    { sel: '[data-tour="mentor"]', ic: '🧑‍🏫', h: 'Mentor yordami', body: <>Har ekranda mentor nima qilishni tushuntiradi — avval uni <b>o'qing</b>, keyin bajaring.</> },
+    { sel: '[data-tour="progress"]', ic: '📊', h: "Progress chizig'i", body: <>Bu chiziq dars <b>qancha qolganini</b> ko'rsatadi — to'lgani sari yakunlaysiz.</> },
+    { sel: '[data-tour="ach"]', ic: '🏅', h: 'Nishonlaringiz', body: <>Vazifalarni bajarib, shu yerda <b>nishon</b> yig'asiz. Bosib ro'yxatini ko'rasiz.</> },
+  ],
+  mentor: [
+    { sel: '[data-tour="live"]', ic: '🔢', h: "Qo'shilish kodi", body: <>O'quvchilar shu <b>PIN kod</b> bilan qo'shiladi. Kim qo'shilganini shu yerda ko'rasiz.</> },
+    { sel: '[data-tour="next"]', ic: '▶', h: 'Siz boshqarasiz', body: <><b>«Davom etish»</b> bosganingizda, barcha o'quvchilar birga oldinga o'tadi.</> },
+    { sel: '[data-tour="progress"]', ic: '📊', h: "Progress chizig'i", body: <>Dars qaysi bosqichda ekanini shu chiziq ko'rsatadi.</> },
+  ],
+};
+function TourGuide({ role, onClose }) {
+  const steps = TOUR[role] || TOUR.learner;
+  const [i, setI] = useState(0);
+  const [rect, setRect] = useState(null);
+  const step = steps[i];
+  const last = i === steps.length - 1;
+  useEffect(() => {
+    const el = typeof document !== 'undefined' && document.querySelector(step.sel);
+    if (!el) { setRect(null); return; }
+    el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    const measure = () => { const r = el.getBoundingClientRect(); setRect({ top: r.top, left: r.left, width: r.width, height: r.height, bottom: r.bottom }); };
+    const raf = requestAnimationFrame(() => { measure(); });
+    const t = setTimeout(measure, 90);
+    window.addEventListener('resize', measure);
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); else if (e.key === 'ArrowRight') setI(p => Math.min(p + 1, steps.length - 1)); else if (e.key === 'ArrowLeft') setI(p => Math.max(p - 1, 0)); };
+    window.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); window.removeEventListener('resize', measure); window.removeEventListener('keydown', onKey); };
+  }, [i, step.sel, steps.length, onClose]);
+  const next = () => last ? onClose() : setI(i + 1);
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1000;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const CW = Math.min(300, vw - 24);
+  let callStyle = { top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: CW };
+  if (rect) {
+    const below = rect.bottom + 168 < vh;
+    const cx = Math.min(Math.max(rect.left + rect.width / 2, CW / 2 + 12), vw - CW / 2 - 12);
+    callStyle = below
+      ? { top: rect.bottom + 16, left: cx, transform: 'translateX(-50%)', width: CW }
+      : { top: Math.max(12, rect.top - 16), left: cx, transform: 'translate(-50%,-100%)', width: CW };
+  }
+  return (
+    <div className="tg-root">
+      {rect
+        ? <div className="tg-hole" style={{ top: rect.top - 7, left: rect.left - 7, width: rect.width + 14, height: rect.height + 14 }} />
+        : <div className="tg-dim" />}
+      <div className="tg-call" style={callStyle}>
+        <div className="tg-head"><span className="tg-ic">{step.ic}</span><span className="tg-h">{step.h}</span><span className="tg-count">{i + 1}/{steps.length}</span></div>
+        <p className="tg-body">{step.body}</p>
+        <div className="tg-nav">
+          <button className="tg-skip" onClick={onClose}>O'tkazib yuborish</button>
+          <div className="tg-navr">
+            {i > 0 && <button className="tg-btn ghost" onClick={() => setI(i - 1)} aria-label="Oldingi">←</button>}
+            <button className="tg-btn go" onClick={next}>{last ? 'Boshladik!' : 'Keyingisi →'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   const lang = langProp || 'uz';
@@ -3515,6 +3517,19 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   const isStudentLive = live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
   const locked = isStudentLive && (screen + 1 > live.mentorScreen);
   useEffect(() => { live.reportScreen(screen); }, [screen, live.mode, live.pin]); // eslint-disable-line
+  // 👋 Onboarding — rolga qarab bir marta (localStorage), sahifa chizilgach ochiladi
+  const [onboard, setOnboard] = useState(false);
+  const onboardShownRef = useRef(false);
+  const onboardRole = live.mode === 'mentor' ? 'mentor' : 'learner';
+  useEffect(() => {
+    if (live.mode !== 'choosing' && !onboardShownRef.current) {
+      onboardShownRef.current = true;
+      let show = true;
+      try { if (localStorage.getItem('hcOnboarded2_' + onboardRole)) show = false; } catch {}
+      if (show) { const t = setTimeout(() => setOnboard(true), 500); return () => clearTimeout(t); } // sahifa chizilib bo'lsin
+    }
+  }, [live.mode, onboardRole]);
+  const closeOnboard = () => { try { localStorage.setItem('hcOnboarded2_' + onboardRole, '1'); } catch {} setOnboard(false); };
   // 🏅 Yakuniy ekranga yetganda: bitiruvchi nishoni
   useEffect(() => { if (screen === TOTAL_SCREENS - 1) earn('graduate'); }, [screen]); // eslint-disable-line
 
@@ -3539,7 +3554,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
     if (typeof onFinished === 'function') onFinished(payload);
   };
 
-  const screens = [Screen0, Screen1, Screen2, Screen3, Screen3b, Screen4, Screen5, Screen5b, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen13, Screen14, Screen15, ScreenPodium, ScreenFlashcards, Screen16];
+  const screens = [Screen0, Screen1, Screen2, Screen3, Screen3b, Screen4, Screen5, Screen5b, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen13, Screen14, ScreenPodium, ScreenFlashcards, Screen16];
   const Current = screens[screen];
   return (
     <LangContext.Provider value={lang}>
@@ -3617,6 +3632,26 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .prompt-input { font-family: 'Manrope'; }
 
         .code-box { background: ${CODE.bg}; color: ${CODE.text}; font-family: 'JetBrains Mono', monospace; font-size: clamp(12.5px,1.6vw,14.5px); line-height: 1.55; padding: clamp(12px,2.2vw,18px); border-radius: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin: 0; box-shadow: 0 8px 22px -6px rgba(${T.shadowBase},0.2); }
+        /* === 🧩 DRAG-DROP ORDER (s3b — qoida ustaxonasi) === */
+        .dd { display: flex; flex-direction: column; gap: 13px; }
+        .dd-slots { display: flex; flex-direction: column; gap: 9px; }
+        .dd-slot { display: flex; align-items: center; gap: 12px; min-height: 56px; border-radius: 14px; border: 2px dashed ${T.ink3}66; background: ${T.paper}; padding: 8px 12px; transition: border-color .18s, background .18s; }
+        .dd-slot.filled { border-style: solid; border-color: ${T.line}; }
+        .dd-slot.ok { border-color: ${T.success}; background: ${T.successSoft}; }
+        .dd-slot.bad { border-color: #E24848; background: #FBE9E9; animation: dd-shake .4s; }
+        @keyframes dd-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+        .dd-slotn { width: 26px; height: 26px; border-radius: 8px; background: ${T.bg}; color: ${T.ink3}; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .dd-slot.ok .dd-slotn { background: ${T.success}; color: #fff; }
+        .dd-hint { color: ${T.ink3}; font-style: italic; font-size: 13px; }
+        .dd-pool { display: flex; flex-wrap: wrap; gap: 9px; min-height: 48px; padding: 10px; border-radius: 14px; background: ${T.bg}; }
+        .dd-pool-empty { color: ${T.ink3}; font-size: 12.5px; font-style: italic; align-self: center; }
+        .dd-chip { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(13px,1.7vw,15px); color: #fff; background: linear-gradient(170deg, #FF8A3D, ${T.accent}); border: none; border-radius: 11px; padding: 11px 15px; cursor: grab; touch-action: none; box-shadow: 0 8px 16px -8px rgba(255,79,40,.6), inset 0 2px 0 rgba(255,255,255,.3); transition: transform .12s; user-select: none; }
+        .dd-chip:hover { transform: translateY(-2px); }
+        .dd-chip:active { cursor: grabbing; }
+        .dd-slots, .dd-pool { position: relative; }
+        .dd-pool { z-index: 1; } /* sudralgan pool chip slotlar ustida ko'rinsin */
+        .dd-done { font-weight: 700; color: ${T.success}; font-size: 14.5px; }
+        .dd-wrong { font-weight: 700; color: #E24848; font-size: 13.5px; }
         .code-box .tg, .t-tag { color: ${CODE.tag}; }
         .ck.active .t-tag { color: #fff; }
         .t-cm, .cm { color: ${CODE.comment}; font-style: italic; }
@@ -3691,8 +3726,6 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .zoom-on { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(880px,94vw); max-height: calc(90vh / var(--lz, 1)); overflow: auto; z-index: 1001; background: ${T.paper}; border-radius: 18px; padding: clamp(20px,4vw,42px); box-shadow: 0 30px 80px -20px rgba(${T.shadowBase},0.5); animation: zoom-pop 0.3s cubic-bezier(.34,1.3,.4,1); }
         @keyframes zoom-pop { from { opacity: 0; transform: translate(-50%,-50%) scale(0.93); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
         .demo-swap { animation: fade-step 0.3s ease-out; }
-        .democard-on { animation: democard-pop 0.5s cubic-bezier(.34,1.4,.5,1); }
-        @keyframes democard-pop { 0% { opacity: 0; transform: scale(0.84) translateY(10px); } 60% { opacity: 1; } 100% { opacity: 1; transform: scale(1) translateY(0); } }
 
         /* === ROADMAP === */
         .roadmap { display: flex; flex-direction: column; gap: 8px; list-style: none; }
@@ -3751,7 +3784,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .sk-info { background: ${T.paper}; border-radius: 12px; padding: 15px 17px; box-shadow: 0 8px 20px -6px rgba(${T.shadowBase},0.16); animation: fade-step 0.3s; }
         .sk-tagbig { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
         .sk-chip { font-family: 'JetBrains Mono'; font-size: 12px; font-weight: 600; color: ${CODE.tag}; background: ${CODE.bg}; padding: 4px 9px; border-radius: 6px; }
-        .sk-wordbadge { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.accent}; background: ${T.accentSoft}; padding: 4px 10px; border-radius: 6px; display: inline-block; animation: pop 0.42s cubic-bezier(.34,1.5,.5,1); }
+        .sk-wordbadge { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.accent}; background: ${T.accentSoft}; padding: 4px 10px; border-radius: 6px; }
 
         /* === HUG (teg o'raydi) === */
         .hug-wrap { display: flex; justify-content: center; padding: 10px 0; }
@@ -3930,32 +3963,104 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .mentor-mob.is-collapsed .mentor-msg { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; box-shadow: none; }
         .mentor-cue { font-family: 'Manrope'; font-weight: 600; font-size: 11px; color: ${T.accent}; letter-spacing: 0.01em; }
 
-        /* ============ CSS DARS CSS ============ */
-        .ana2 { display: flex; flex-direction: column; gap: 10px; background: ${T.paper}; border-radius: 12px; padding: 14px 16px; box-shadow: 0 6px 16px -6px rgba(${T.shadowBase},0.14); }
-        .ana2-row { display: flex; align-items: center; gap: 10px; }
-        .ana2-tag { font-family: 'JetBrains Mono'; font-weight: 700; font-size: 12px; color: ${T.ink2}; background: ${T.bg}; padding: 4px 9px; border-radius: 6px; flex-shrink: 0; min-width: 44px; text-align: center; }
-        .ana2-tag.ana2-css { color: #fff; background: ${T.accent}; }
-        .ana2-txt { font-family: 'Manrope'; font-size: 13.5px; color: ${T.ink}; }
-        .csspart { cursor: pointer; border-radius: 6px; padding: 2px 5px; transition: all 0.15s; }
-        .csspart:not(.seen) { animation: csshint 1.9s ease-in-out infinite; }
-        .csspart:hover { background: rgba(255,255,255,0.08); }
-        .csspart.on { box-shadow: 0 0 0 2px ${T.accent}; background: rgba(255,79,40,0.14); animation: csstap 0.45s cubic-bezier(.34,1.5,.5,1); }
-        .csspart.seen { text-decoration: underline; text-decoration-color: rgba(255,255,255,0.3); text-underline-offset: 4px; }
-        @keyframes csshint { 0%,100% { box-shadow: 0 0 0 0 rgba(255,79,40,0); } 50% { box-shadow: 0 0 0 2px rgba(255,79,40,0.4); } }
-        @keyframes csstap { 0% { transform: scale(1); } 42% { transform: scale(1.2); } 100% { transform: scale(1); } }
-        .margin-tag { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 11px; color: ${T.blue}; background: #fff; padding: 3px 10px; border-radius: 99px; white-space: nowrap; box-shadow: 0 3px 9px -4px rgba(${T.shadowBase},0.3); transition: opacity 0.25s ease; }
-        .csslegend { display: flex; gap: 8px; flex-wrap: wrap; }
-        .csstab { font-family: 'Manrope'; font-weight: 600; font-size: 12.5px; padding: 7px 13px; border-radius: 99px; background: ${T.paper}; color: ${T.ink2}; cursor: pointer; transition: all 0.18s; box-shadow: 0 3px 10px -5px rgba(${T.shadowBase},0.2); border: none; }
-        .csstab.seen { color: ${T.success}; }
-        .csstab.on { box-shadow: 0 0 0 1.5px ${T.accent}; color: ${T.accent}; }
-        .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
-        .swatch { width: 42px; height: 42px; border-radius: 10px; border: none; cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08), 0 4px 10px -5px rgba(${T.shadowBase},0.25); }
-        .swatch:hover { transform: translateY(-2px); }
-        .swatch.on { box-shadow: 0 0 0 3px ${T.bg}, 0 0 0 5px ${T.accent}; transform: translateY(-2px); }
-        .hexrow { display: flex; align-items: center; justify-content: space-between; background: ${T.paper}; border-radius: 10px; padding: 10px 14px; box-shadow: 0 4px 12px -6px rgba(${T.shadowBase},0.14); }
-        .hexlbl { font-family: 'Manrope'; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: ${T.ink3}; }
-        .hexval { font-size: clamp(14px,2vw,17px); color: ${T.ink}; font-weight: 600; }
+        /* ============ CSS-2 DARS CSS ============ */
         .gchip-on { background: ${T.accent} !important; color: #fff !important; box-shadow: 0 6px 16px -5px rgba(255,79,40,0.45) !important; }
+        .cssdev { background: ${CODE.bg}; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 22px -6px rgba(${T.shadowBase},0.22); }
+        .cssdev-bar { background: #232f45; color: ${CODE.punct}; font-family: 'JetBrains Mono'; font-size: 11px; padding: 8px 12px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2e3a52; }
+        .cssdev-tab { color: ${CODE.text}; border-bottom: 2px solid ${T.accent}; padding-bottom: 4px; }
+        .cssdev-body { padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: clamp(12px,1.7vw,13.5px); line-height: 1.7; color: ${CODE.text}; }
+        .cssdev-sel { color: ${CODE.tag}; }
+        .cssdev-prop { color: ${CODE.attr}; }
+        .cssdev-val { color: ${CODE.str}; }
+        .cssdev-edit { color: ${CODE.str}; background: rgba(255,79,40,0.18); box-shadow: inset 0 0 0 1px ${T.accent}; border-radius: 4px; padding: 1px 6px; }
+        .cssdev-opts { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 14px 12px; }
+        .cssdev-chip { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 5px 10px; border-radius: 7px; border: none; background: #2e3a52; color: ${CODE.text}; cursor: pointer; transition: all 0.15s; }
+        .cssdev-chip:hover { background: #3a4866; }
+        .cssdev-chip.on { background: ${T.accent}; color: #fff; }
+
+        /* ============ CSS-2 v17 — boyitilgan vizuallar ============ */
+        /* qutilar tizilganda "qo'nish" animatsiyasi */
+        @keyframes snap-in { 0% { opacity: 0; transform: translateY(10px) scale(0.88); } 60% { transform: translateY(0) scale(1.05); } 100% { opacity: 1; transform: none; } }
+        .fbx.snap, .fx-box.snap, .nav-snap { animation: snap-in 0.42s cubic-bezier(.34,1.3,.4,1) backwards; }
+        @media (prefers-reduced-motion: reduce) { .fbx.snap, .fx-box.snap, .nav-snap, .bi-block { animation: none !important; } }
+
+        /* 🎯 s7 "Bullseye!" — justify-content namunaga (space-between) mos kelganda bir martalik portlash (halqa + uchqun + nishon pop); faqat harakat, fade-out bilan chalg'itmaydi */
+        .bull-wrap { position: relative; }
+        .bull-fx { position: absolute; inset: 0; z-index: 6; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+        .bull-ring { position: absolute; top: 50%; left: 50%; width: 58px; height: 58px; border-radius: 50%; border: 3px solid ${T.success}; transform: translate(-50%,-50%) scale(0.3); opacity: 0.9; animation: bull-shock 0.8s cubic-bezier(.2,.7,.3,1) forwards; }
+        .bull-ring.d2 { border-color: ${T.accent}; animation-delay: 0.12s; }
+        @keyframes bull-shock { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0.85; } 100% { transform: translate(-50%,-50%) scale(3.6); opacity: 0; } }
+        .bull-spark { position: absolute; top: 50%; left: 50%; font-size: 15px; color: ${T.success}; text-shadow: 0 0 8px ${T.success}66; transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; animation: bull-spark-burst 0.85s ease-out both; }
+        .bull-spark:nth-child(2n) { color: ${T.accent}; text-shadow: 0 0 8px ${T.accent}55; }
+        @keyframes bull-spark-burst { 0% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; } 35% { opacity: 1; } 100% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(-62px) scale(1); opacity: 0; } }
+        .bull-target { font-size: 38px; transform: scale(0); opacity: 0; filter: drop-shadow(0 5px 14px rgba(${T.shadowBase},0.35)); animation: bull-pop 0.85s cubic-bezier(.28,1.5,.4,1) both; }
+        @keyframes bull-pop { 0% { transform: scale(0) rotate(-30deg); opacity: 0; } 45% { transform: scale(1.28) rotate(9deg); opacity: 1; } 68% { transform: scale(0.92) rotate(-3deg); opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) { .bull-fx { display: none; } }
+
+        /* flex qutilar (raqamli) */
+        .fx-box { background: ${T.accent}; color: #fff; border-radius: 8px; min-height: 40px; padding: 0 16px; display: flex; align-items: center; justify-content: center; font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 14px; box-shadow: 0 6px 14px -6px rgba(255,79,40,0.5); }
+        .fx-box.kid { cursor: pointer; transition: transform 0.18s, box-shadow 0.18s; }
+        .fx-box.kid:hover { transform: translateY(-2px); }
+        .fx-box.kid.lit { box-shadow: 0 0 0 3px #fff, 0 0 0 5px ${T.accent}; }
+
+        /* block / inline ko'rsatkichi (s2) */
+        .bi-cap { font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 12px; color: ${T.ink2}; margin: 0 0 10px; }
+        .bi-block { display: flex; align-items: center; justify-content: space-between; background: ${T.accentSoft}; color: ${T.accent}; border-radius: 8px; padding: 10px 14px; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 14px; margin-bottom: 8px; box-shadow: inset 0 0 0 1.5px rgba(255,79,40,0.25); animation: snap-in 0.4s cubic-bezier(.34,1.3,.4,1) backwards; }
+        .bi-full { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: ${T.accent}; opacity: 0.7; white-space: nowrap; }
+        .bi-block:last-child { margin-bottom: 0; }
+        .bi-tag { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: ${CODE.tag}; background: ${CODE.bg}; padding: 2px 6px; border-radius: 4px; margin-right: 6px; }
+        .bi-inline { display: inline; background: ${T.accentSoft}; color: ${T.accent}; border-radius: 6px; padding: 3px 9px; font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; margin: 0 3px; animation: fade-step 0.45s ease-out backwards; }
+
+        /* konteyner diagrammasi (s3 — bosib o'rganish) */
+        .cdiag { position: relative; border: 2px dashed ${T.ink3}; border-radius: 12px; padding: 22px 12px 12px; cursor: pointer; transition: all 0.2s; }
+        .cdiag.on { border-color: ${T.accent}; border-style: solid; background: ${T.accentSoft}; }
+        .cdiag-tag { position: absolute; top: 0; left: 12px; transform: translateY(-50%); font-family: 'JetBrains Mono', monospace; font-size: 10px; color: ${T.ink2}; background: #fff; padding: 1px 7px; border-radius: 5px; box-shadow: 0 2px 6px -3px rgba(${T.shadowBase},0.3); }
+        .cdiag.on .cdiag-tag { color: ${T.accent}; }
+        /* 👆 tap-hint affordance — flex yoqilgach, hali bosilmagan konteyner "bos meni" deb pulslaydi */
+        @keyframes tap-hint { 0%,100% { box-shadow: inset 0 0 0 0 rgba(255,79,40,0); } 50% { box-shadow: inset 0 0 0 2px rgba(255,79,40,0.45); } }
+        .cdiag.tapme { animation: tap-hint 1.7s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .cdiag.tapme { animation: none; box-shadow: inset 0 0 0 2px rgba(255,79,40,0.35); } }
+
+        /* 👆 btn-pulse — hali bosilmagan qiymat-tugmasi (chip/button) qizil yonuvchi hoshiya bilan "bos meni" deydi; birinchi bosishdan keyin o'chadi */
+        @keyframes btn-pulse-kf { 0%,100% { box-shadow: 0 0 0 0 rgba(255,79,40,0.55), 0 0 6px 1px rgba(255,79,40,0.30); } 50% { box-shadow: 0 0 0 4px rgba(255,79,40,0.30), 0 0 13px 3px rgba(255,79,40,0.60); } }
+        .btn-pulse { animation: btn-pulse-kf 1.4s ease-in-out infinite; position: relative; z-index: 1; }
+        @media (prefers-reduced-motion: reduce) { .btn-pulse { animation: none; box-shadow: 0 0 0 2px rgba(255,79,40,0.55); } }
+
+        /* yo'nalish belgisi (s5) */
+        .dir-badge { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: ${T.accentSoft}; color: ${T.accent}; margin-left: 7px; }
+
+        /* gap vizuali (s6) — bo'shliq qizil ko'rinadi */
+        .gapviz > div { background: rgba(255,79,40,0.12) !important; box-shadow: inset 0 0 0 1px rgba(255,79,40,0.2); }
+
+        /* === FLEX O'QLARI (asosiy / ko'ndalang) === */
+        .axis-stage { display: flex; flex-direction: column; gap: 10px; }
+        .axis-main { display: flex; flex-direction: column; gap: 4px; }
+        .axis-head { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600; color: ${T.accent}; letter-spacing: 0.03em; }
+        .axis-line { position: relative; height: 8px; display: flex; align-items: center; }
+        .axis-line::before { content: ''; flex: 1; height: 2px; background: ${T.accent}; border-radius: 2px; opacity: 0.55; }
+        .axis-tip { position: absolute; right: -1px; top: 50%; transform: translateY(-50%); color: ${T.accent}; font-size: 10px; }
+        .axis-bead { position: absolute; left: 0; top: 50%; width: 18px; height: 4px; background: ${T.accent}; border-radius: 2px; transform: translateY(-50%); animation: bead-x 1.7s ease-in-out infinite; }
+        @keyframes bead-x { 0% { left: 0; } 50% { left: calc(100% - 18px); } 100% { left: 0; } }
+        .axis-crosswrap { display: flex; gap: 10px; align-items: stretch; }
+        .axis-cross { display: flex; gap: 3px; align-items: stretch; flex-shrink: 0; }
+        .axis-head.v { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); }
+        .axis-vline { position: relative; width: 8px; display: flex; justify-content: center; }
+        .axis-vline::before { content: ''; width: 2px; flex: 1; background: ${T.accent}; border-radius: 2px; opacity: 0.55; }
+        .axis-tip.v { position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); color: ${T.accent}; font-size: 10px; }
+        .axis-bead.v { position: absolute; top: 0; left: 50%; width: 4px; height: 18px; background: ${T.accent}; border-radius: 2px; transform: translateX(-50%); animation: bead-y 1.7s ease-in-out infinite; }
+        @keyframes bead-y { 0% { top: 0; } 50% { top: calc(100% - 18px); } 100% { top: 0; } }
+
+        /* DevTools inspect — belgilangan element (s10) */
+        .inspect-hl { outline: 2px solid ${T.blue}; outline-offset: 3px; border-radius: 10px; animation: hl-pulse 1.3s ease-in-out infinite; }
+        @keyframes hl-pulse { 0%,100% { outline-color: ${T.blue}; } 50% { outline-color: rgba(1,154,203,0.35); } }
+
+        /* MOBIL: yakun (s18) — hero bir qatorda, ring ixcham (skrollsiz) */
+        @media (max-width: 600px) {
+          .hero { flex-wrap: nowrap; gap: 12px; align-items: center; }
+          .hero-l { min-width: 0; }
+          .ring-wrap, .ring-wrap svg { width: 100px; height: 100px; }
+          .ring-num { font-size: 24px; } .ring-den { font-size: 16px; }
+        }
 
 
         /* ===================== JONLI DARS CSS (InternetLesson bilan bir xil) ===================== */
@@ -4054,7 +4159,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
           .rc-btn { font-size: 13px; padding: 11px 16px; }
         }
 
-        /* ===== ⚡ CODESTRIKE — CTA (dars ichida) ===== */
+        /* === ⚡ CTA (yakun sahifasida) === */
         .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #FFF3EA, #FFE7DC); border: 1px solid #F3D9CC; border-radius: 20px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 16px 40px -18px rgba(255,79,40,0.28); }
         .qz-cta-txt { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 3px; }
         .qz-cta-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(16px,2.2vw,20px); color: #121826; }
@@ -4063,7 +4168,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .qz-cta-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); }
         .qz-cta-btn:disabled { background: #E9E6DF; color: #98A0B4; cursor: default; box-shadow: none; }
         .qz-cta.ready .qz-cta-btn { animation: qz-pulse 1.1s ease-in-out infinite; }
-        @keyframes qz-pulse { 0%,100% { transform: scale(1); box-shadow: 0 12px 24px -8px rgba(255,79,40,0.6); } 50% { transform: scale(1.06); box-shadow: 0 16px 34px -6px rgba(255,79,40,0.9); } }
+        @keyframes qz-pulse { 0%,100% { transform: scale(1); box-shadow: 0 8px 22px -8px rgba(255,79,40,0.7); } 50% { transform: scale(1.06); box-shadow: 0 10px 30px -6px rgba(255,79,40,0.95); } }
 
         /* ===== ⚡ CODE STRIKE — NEON-KAPSULA (tungi turnir-portali) =====
            Yorug' sahifada qop-qora binafsha kapsula = arenaga PORTAL.
@@ -4176,7 +4281,8 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
 
         @media (prefers-reduced-motion: reduce) { .cs-cap, .cs-ring, .cs-tok, .cs-dash, .cs-thunder, .cs-word, .cs-word::before, .csn-bolt, .cs-spark, .cs-enter, .cs-livedot i, .cs-hud-i, .cs-portal { animation: none !important; } }
         @media (max-width: 560px) { .cs-word { font-size: clamp(26px,9vw,50px); } .cs-cap { border-radius: 40px; padding: 22px 18px; } .cs-livedot { top: 10px; right: 14px; } }
-        /* ===== ⚡ ARENA — issiq CoddyCamp muhiti ===== */
+
+        /* ===== ⚡ ARENA — tungi-neon CodeStrike muhiti ===== */
         .qz-arena { position: fixed; inset: 0; z-index: 10500; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(18px,4vw,44px) clamp(12px,3vw,32px); background: radial-gradient(62% 46% at 10% 6%, rgba(124,58,237,0.30) 0%, rgba(124,58,237,0) 56%), radial-gradient(58% 48% at 92% 12%, rgba(15,166,214,0.14) 0%, rgba(15,166,214,0) 55%), radial-gradient(70% 52% at 78% 104%, rgba(255,79,40,0.14) 0%, rgba(255,79,40,0) 60%), radial-gradient(90% 55% at 50% -8%, #26123F 0%, rgba(38,18,63,0) 54%), #140B30; }
         .qz-arena::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: radial-gradient(rgba(190,150,255,0.08) 1.1px, transparent 1.2px); background-size: 24px 24px; -webkit-mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); }
         .qz-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
@@ -4285,12 +4391,12 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .pod-1 .pod-bar { height: clamp(74px,11vw,120px); }
         .pod-2 .pod-bar { height: clamp(52px,8vw,86px); background: linear-gradient(180deg, ${T.ink2}, ${T.ink3}); }
         .pod-3 .pod-bar { height: clamp(38px,6vw,62px); background: linear-gradient(180deg, #C98A3D, #DDA55C); }
-        .pod-col.me .pod-name { color: ${T.accent}; }
+        .pod-col.me .pod-name { color: ${T.success}; }
         .pod-my { margin: 0; text-align: center; font-family: 'Manrope'; font-size: 14px; color: ${T.ink2}; }
-        .pod-my b { color: ${T.accent}; }
+        .pod-my b { color: ${T.success}; }
         .pod-list { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow: auto; }
         .pod-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(${T.shadowBase},0.04); }
-        .pod-row.me { background: ${T.accentSoft}; outline: 1.5px solid ${T.accent}55; }
+        .pod-row.me { background: ${T.successSoft}; outline: 1.5px solid ${T.success}66; }
         .pod-rank { min-width: 22px; font-size: 12px; font-weight: 700; color: ${T.ink3}; }
         .pod-row-name { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14px; color: ${T.ink}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pod-row-dots { display: flex; gap: 4px; }
@@ -4322,32 +4428,16 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .option-wait { background: ${T.blueSoft} !important; color: ${T.blue} !important; box-shadow: inset 0 0 0 2px ${T.blue}, 0 8px 22px -8px rgba(1,154,203,0.3) !important; }
         /* frame-wait (feedback kutish) */
         .frame-wait { background: ${T.blueSoft}; border-left: 4px solid ${T.blue}; border-radius: 12px; padding: clamp(14px,2.5vw,20px); box-shadow: 0 6px 16px -8px rgba(1,154,203,0.22); }
-        /* kod atamasi chipi — savol/variant/izohlarda oddiy matndan ajralib turadi */
+        /* xira LiveBadge — asosiy holatda so'niq, hover/fokusda to'liq ko'rinadi */
+        .live-badge { opacity: 0.4; transition: opacity 0.25s ease, box-shadow 0.25s ease; }
+        .live-badge:hover, .live-badge:focus-within { opacity: 1; box-shadow: 0 8px 24px -6px rgba(58,53,48,0.32) !important; }
+        @media (hover: none) { .live-badge { opacity: 0.62; } }
+        /* ===== 🏗️ QURUVCHI QATLAMI CSS (fmtCode chip, CodeStrike brand, praktika panel, flashcard, badges, celebrate, onboarding) ===== */
+        /* fmtCode kod-chip */
         .qcode { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.92em; background: rgba(20,17,14,0.08); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
         .qz-tile .qcode { background: rgba(255,255,255,0.25); color: #fff; }
         .qz-q .qcode { background: rgba(203,173,255,0.18); color: #F2ECFF; }
-        /* === 🧲 DRAG&DROP (reusable) === */
-        .sk-buildbox { display: flex; flex-direction: column; animation: sk-swapin 0.5s cubic-bezier(.34,1.3,.4,1); }
-        @keyframes sk-swapin { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
-        .dd { display: flex; flex-direction: column; gap: 13px; }
-        .dd-slots { display: flex; flex-direction: column; gap: 9px; }
-        .dd-slot { display: flex; align-items: center; gap: 12px; min-height: 56px; border-radius: 14px; border: 2px dashed ${T.ink3}66; background: ${T.paper}; padding: 8px 12px; transition: border-color .18s, background .18s; }
-        .dd-slot.filled { border-style: solid; border-color: ${T.line}; }
-        .dd-slot.ok { border-color: ${T.success}; background: ${T.successSoft}; }
-        .dd-slot.bad { border-color: #E24848; background: #FBE9E9; animation: dd-shake .4s; }
-        @keyframes dd-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
-        .dd-slotn { width: 26px; height: 26px; border-radius: 8px; background: ${T.bg}; color: ${T.ink3}; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .dd-slot.ok .dd-slotn { background: ${T.success}; color: #fff; }
-        .dd-hint { color: ${T.ink3}; font-style: italic; font-size: 13px; }
-        .dd-pool { display: flex; flex-wrap: wrap; gap: 9px; min-height: 48px; padding: 10px; border-radius: 14px; background: ${T.bg}; }
-        .dd-pool-empty { color: ${T.ink3}; font-size: 12.5px; font-style: italic; align-self: center; }
-        .dd-chip { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(13px,1.7vw,15px); color: #fff; background: linear-gradient(170deg, #FF8A3D, ${T.accent}); border: none; border-radius: 11px; padding: 11px 15px; cursor: grab; touch-action: none; box-shadow: 0 8px 16px -8px rgba(255,79,40,.6), inset 0 2px 0 rgba(255,255,255,.3); transition: transform .12s; user-select: none; }
-        .dd-chip:hover { transform: translateY(-2px); }
-        .dd-chip:active { cursor: grabbing; }
-        .dd-slots, .dd-pool { position: relative; }
-        .dd-pool { z-index: 1; } /* sudralgan pool chip slotlar ustida ko'rinsin */
-        .dd-done { font-weight: 700; color: ${T.success}; font-size: 14.5px; }
-        .dd-wrong { font-weight: 700; color: #E24848; font-size: 13.5px; }
+        /* Mentor praktika paneli */
         /* === ✍️ MENTOR PRAKTIKA PANELI (jonli) === */
         .mp-overlay { position: fixed; inset: 0; z-index: 2000; background: ${T.bg}; display: flex; align-items: center; justify-content: center; padding: clamp(16px,3vw,34px); overflow: auto; }
         .mp-card { width: 100%; max-width: 640px; background: ${T.paper}; border-radius: 22px; padding: clamp(22px,3.4vw,36px); box-shadow: 0 24px 60px -24px rgba(${T.shadowBase},0.4); display: flex; flex-direction: column; gap: 14px; animation: zoom-pop 0.3s cubic-bezier(.34,1.3,.4,1); }
@@ -4364,6 +4454,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .mp-next { flex: 1; min-width: 160px; padding: 14px 20px; border: 1.5px solid rgba(${T.shadowBase},0.16); border-radius: 14px; background: ${T.paper}; color: ${T.ink}; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.15s; }
         .mp-next:hover { border-color: ${T.accent}; color: ${T.accent}; }
         .mp-tip { margin: 2px 0 0; font-size: 12.5px; line-height: 1.5; color: ${T.ink3}; }
+        /* Flashcards */
         /* === 🃏 FLASHCARDS (reusable, 3D flip) === */
         .fc-center { display: flex; justify-content: center; padding-top: 4px; }
         .fc { display: flex; flex-direction: column; gap: 11px; max-width: 480px; width: 100%; }
@@ -4414,6 +4505,38 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .fc-done-emoji { font-size: 40px; }
         .fc-done-h { font-family: 'Manrope'; font-weight: 800; font-size: 20px; color: ${T.success}; margin: 0; }
         .fc-done-s { font-family: 'Manrope'; color: ${T.ink2}; margin: 0 0 8px; font-size: 14px; }
+        /* Achievements kolleksiya + hisoblagich */
+        .ach-coll { display: flex; flex-direction: column; gap: 10px; }
+        .ach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        @media (max-width: 560px) { .ach-grid { grid-template-columns: repeat(2, 1fr); } }
+        .ach-badge { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; border-radius: 14px; padding: 14px 10px; transition: transform 0.15s; }
+        .ach-badge.got { background: linear-gradient(160deg, ${T.accentSoft}, #FFF3EC); border: 1.5px solid ${T.accent}55; }
+        .ach-badge.got:hover { transform: translateY(-3px); }
+        .ach-badge.locked { background: ${T.bg}; border: 1.5px dashed ${T.line}; opacity: 0.75; }
+        .ach-badge-ic { font-size: 30px; line-height: 1; }
+        .ach-badge.locked .ach-badge-ic { filter: grayscale(1) opacity(0.55); font-size: 22px; }
+        .ach-badge-name { font-family: 'Manrope'; font-weight: 800; font-size: 13px; color: ${T.ink}; }
+        .ach-badge.locked .ach-badge-name { color: ${T.ink3}; }
+        .ach-badge-desc { font-family: 'Manrope'; font-size: 10.5px; color: ${T.ink2}; line-height: 1.3; }
+        /* Yuqori paneldagi nishon hisoblagichi */
+        .ach-cnt-wrap { position: relative; }
+        .ach-counter { display: inline-flex; align-items: center; gap: 4px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-radius: 99px; padding: 5px 11px 5px 9px; font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink2}; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+        .ach-counter.has { border-color: ${T.accent}66; }
+        .ach-counter:hover { border-color: ${T.accent}; box-shadow: 0 6px 16px -8px rgba(255,79,40,0.4); }
+        .ach-counter b { color: ${T.accent}; font-size: 14px; font-variant-numeric: tabular-nums; }
+        .ach-cnt-tot { color: ${T.ink3}; font-size: 11.5px; }
+        .ach-cnt-ic { font-size: 14px; }
+        .ach-counter.bump { animation: ach-bump 0.8s cubic-bezier(.34,1.6,.4,1); }
+        @keyframes ach-bump { 0% { transform: scale(1); } 30% { transform: scale(1.35) rotate(-6deg); box-shadow: 0 0 0 6px rgba(255,79,40,0.18); } 60% { transform: scale(0.96) rotate(3deg); } 100% { transform: scale(1) rotate(0); box-shadow: 0 0 0 0 rgba(255,79,40,0); } }
+        .ach-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 200; width: 222px; background: ${T.paper}; border: 1px solid ${T.line}; border-radius: 14px; padding: 10px; box-shadow: 0 18px 44px -14px rgba(${T.shadowBase},0.4); display: flex; flex-direction: column; gap: 3px; animation: fade-step 0.22s ease; }
+        .ach-pop-h { font-family: 'Manrope'; font-weight: 800; font-size: 12px; color: ${T.accent}; padding: 2px 6px 6px; }
+        .ach-pop-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; }
+        .ach-pop-row.got { background: ${T.accentSoft}66; }
+        .ach-pop-ic { font-size: 17px; width: 20px; text-align: center; }
+        .ach-pop-row:not(.got) .ach-pop-ic { filter: grayscale(1) opacity(0.5); font-size: 13px; }
+        .ach-pop-nm { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink}; }
+        .ach-pop-row:not(.got) .ach-pop-nm { color: ${T.ink3}; }
+        /* AchCelebrate — to'liq-ekran nishon bayrami */
         /* ===== 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI ===== */
         .acu-overlay { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;
           background: radial-gradient(circle at 50% 42%, rgba(20,14,6,0.34) 0%, rgba(10,8,14,0.72) 62%, rgba(8,6,12,0.86) 100%);
@@ -4457,36 +4580,28 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .acu-tap { font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); margin-top: 4px; animation: acu-rise 0.5s ease-out 1.1s both, acu-blink 1.6s ease-in-out 1.6s infinite; }
         @keyframes acu-blink { 0%,100% { opacity: 0.5; } 50% { opacity: 0.85; } }
         @media (prefers-reduced-motion: reduce) { .acu-rays, .acu-medal, .acu-glow, .acu-tap { animation-iteration-count: 1 !important; } .acu-rays { animation: acu-fade 0.4s both !important; } }
-        .ach-coll { display: flex; flex-direction: column; gap: 10px; }
-        .ach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        @media (max-width: 560px) { .ach-grid { grid-template-columns: repeat(2, 1fr); } }
-        .ach-badge { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; border-radius: 14px; padding: 14px 10px; transition: transform 0.15s; }
-        .ach-badge.got { background: linear-gradient(160deg, ${T.accentSoft}, #FFF3EC); border: 1.5px solid ${T.accent}55; }
-        .ach-badge.got:hover { transform: translateY(-3px); }
-        .ach-badge.locked { background: ${T.bg}; border: 1.5px dashed ${T.line}; opacity: 0.75; }
-        .ach-badge-ic { font-size: 30px; line-height: 1; }
-        .ach-badge.locked .ach-badge-ic { filter: grayscale(1) opacity(0.55); font-size: 22px; }
-        .ach-badge-name { font-family: 'Manrope'; font-weight: 800; font-size: 13px; color: ${T.ink}; }
-        .ach-badge.locked .ach-badge-name { color: ${T.ink3}; }
-        .ach-badge-desc { font-family: 'Manrope'; font-size: 10.5px; color: ${T.ink2}; line-height: 1.3; }
-        /* Yuqori paneldagi nishon hisoblagichi */
-        .ach-cnt-wrap { position: relative; }
-        .ach-counter { display: inline-flex; align-items: center; gap: 4px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-radius: 99px; padding: 5px 11px 5px 9px; font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink2}; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
-        .ach-counter.has { border-color: ${T.accent}66; }
-        .ach-counter:hover { border-color: ${T.accent}; box-shadow: 0 6px 16px -8px rgba(255,79,40,0.4); }
-        .ach-counter b { color: ${T.accent}; font-size: 14px; font-variant-numeric: tabular-nums; }
-        .ach-cnt-tot { color: ${T.ink3}; font-size: 11.5px; }
-        .ach-cnt-ic { font-size: 14px; }
-        .ach-counter.bump { animation: ach-bump 0.8s cubic-bezier(.34,1.6,.4,1); }
-        @keyframes ach-bump { 0% { transform: scale(1); } 30% { transform: scale(1.35) rotate(-6deg); box-shadow: 0 0 0 6px rgba(255,79,40,0.18); } 60% { transform: scale(0.96) rotate(3deg); } 100% { transform: scale(1) rotate(0); box-shadow: 0 0 0 0 rgba(255,79,40,0); } }
-        .ach-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 200; width: 222px; background: ${T.paper}; border: 1px solid ${T.line}; border-radius: 14px; padding: 10px; box-shadow: 0 18px 44px -14px rgba(${T.shadowBase},0.4); display: flex; flex-direction: column; gap: 3px; animation: fade-step 0.22s ease; }
-        .ach-pop-h { font-family: 'Manrope'; font-weight: 800; font-size: 12px; color: ${T.accent}; padding: 2px 6px 6px; }
-        .ach-pop-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; }
-        .ach-pop-row.got { background: ${T.accentSoft}66; }
-        .ach-pop-ic { font-size: 17px; width: 20px; text-align: center; }
-        .ach-pop-row:not(.got) .ach-pop-ic { filter: grayscale(1) opacity(0.5); font-size: 13px; }
-        .ach-pop-nm { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink}; }
-        .ach-pop-row:not(.got) .ach-pop-nm { color: ${T.ink3}; }
+        /* TourGuide onboarding coach-mark */
+        /* === 👋 ONBOARDING — coach-mark spotlight tur === */
+        .tg-root { position: fixed; inset: 0; z-index: 10300; animation: fade-step 0.2s ease-out; }
+        .tg-dim { position: absolute; inset: 0; background: rgba(10,8,14,0.6); }
+        .tg-hole { position: absolute; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(10,8,14,0.6), 0 0 0 3px #fff, 0 0 26px 5px rgba(255,201,77,0.55); pointer-events: none; transition: top 0.35s cubic-bezier(.4,0,.2,1), left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1), height 0.35s cubic-bezier(.4,0,.2,1); }
+        .tg-call { position: absolute; z-index: 2; background: ${T.paper}; border-radius: 16px; padding: 14px 16px 12px; box-shadow: 0 22px 54px -16px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px; animation: tg-pop 0.25s ease-out; transition: top 0.3s cubic-bezier(.4,0,.2,1), left 0.3s cubic-bezier(.4,0,.2,1); }
+        @keyframes tg-pop { from { opacity: 0; } }
+        .tg-head { display: flex; align-items: center; gap: 8px; }
+        .tg-ic { font-size: 20px; line-height: 1; }
+        .tg-h { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 15px; color: ${T.ink}; flex: 1; }
+        .tg-count { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 700; color: #fff; background: ${T.accent}; border-radius: 99px; padding: 2px 8px; }
+        .tg-body { font-family: 'Manrope', sans-serif; font-size: 14px; line-height: 1.5; color: ${T.ink2}; margin: 0; }
+        .tg-body b { color: ${T.ink}; }
+        .tg-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+        .tg-skip { background: none; border: none; color: ${T.ink3}; font-family: 'Manrope', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 6px 2px; }
+        .tg-skip:hover { color: ${T.accent}; }
+        .tg-navr { display: flex; align-items: center; gap: 8px; }
+        .tg-btn { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 11px; padding: 9px 16px; cursor: pointer; transition: all 0.16s; }
+        .tg-btn.go { background: linear-gradient(135deg,${T.accent},#FF8A3D); color: #fff; box-shadow: 0 8px 20px -6px rgba(255,79,40,0.55); }
+        .tg-btn.go:hover { transform: translateY(-1px); }
+        .tg-btn.ghost { background: ${T.bg}; color: ${T.ink2}; padding: 9px 12px; }
+        .tg-btn.ghost:hover { color: ${T.ink}; }
       `}</style>
       <LiveGateCtx.Provider value={{ locked, live }}>
         <AchCtx.Provider value={earned}>
@@ -4498,6 +4613,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
               <Current screen={screen} storedAnswer={answers[screen]} answers={answers} achievements={earned} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
               <AchToasts toasts={achToasts} onDone={(k) => setAchToasts(t => t.filter(x => x.k !== k))} />
               <LiveBadge live={live} total={TOTAL_SCREENS} />
+              {onboard && <TourGuide role={onboardRole} onClose={closeOnboard} />}
             </>
           )}
         </div>
