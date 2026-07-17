@@ -3457,6 +3457,7 @@ function TourGuide({ role, onClose }) {
     </div>
   );
 }
+// yangilandi
 
 export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   const lang = langProp || 'uz';
