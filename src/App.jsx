@@ -1,10 +1,10 @@
-import HtmlLesson from './PmUserStoryLesson.jsx'
-
+import HtmlPractice from './PmUserStoryLesson.jsx'
+  
 function App() {
 
   return (
     <>
-      <HtmlLesson />
+      <HtmlPractice />
     </>
   )
 }
